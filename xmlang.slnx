@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Xmlang/Xmlang.csproj" />
+    <Project Path="src/Xmlang.Cli/Xmlang.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Xmlang.Tests/Xmlang.Tests.csproj" />
+  </Folder>
+</Solution>

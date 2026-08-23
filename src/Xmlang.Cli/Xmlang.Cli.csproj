@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>xm</ToolCommandName>
+    <PackageId>Xmlang.Cli</PackageId>
+    <Description>xm — the xmlang linter CLI. Lints an Experience Model (*.xm.yaml) against its emlang Event Model(s): dangling references, unknown personas/phases, orphan labels, and the rest of the spec's rule set.</Description>
+    <PackageTags>xmlang;emlang;event-modeling;experience-model;ux;dsl;linter;cli;dotnet-tool</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- A net10.0 tool must run on newer runtimes too. -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Xmlang\Xmlang.csproj" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

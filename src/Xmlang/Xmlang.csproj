@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Xmlang</PackageId>
+    <Description>Reference implementation of xmlang, the Experience Model DSL: parser, Event Model resolution surface, and linter. xmlang records the UX judgments an Event Model deliberately omits (personas, surface composition, salience, journeys, labels, tokens) as data, never as geometry.</Description>
+    <PackageTags>xmlang;emlang;event-modeling;experience-model;ux;dsl;linter;yaml</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

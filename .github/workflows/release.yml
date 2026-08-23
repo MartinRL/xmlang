@@ -4,6 +4,10 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: read
+  id-token: write # NuGet Trusted Publishing (OIDC)
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -21,6 +25,9 @@ jobs:
           fi
       - run: dotnet test -c Release
       - run: dotnet pack -c Release -o artifacts
-      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      - name: NuGet login (Trusted Publishing, OIDC → short-lived key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: MartinRL
+      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

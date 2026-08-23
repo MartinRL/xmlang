@@ -3,12 +3,12 @@ using Xunit;
 
 namespace Xmlang.Tests;
 
-public class EmModelTests
+public class EmParserTests
 {
     [Fact]
     public void ShortAndLongElementKeysCollectAlike()
     {
-        var em = EmModel.Parse("""
+        var em = EmParser.Parse("""
             slices:
               Short:
                 - c: DoThing
@@ -31,7 +31,7 @@ public class EmModelTests
     [Fact]
     public void LaneIsThePrefixBeforeTheLastSlash()
     {
-        var em = EmModel.Parse("""
+        var em = EmParser.Parse("""
             slices:
               S:
                 - e: Shop / Sub / ItemAdded
@@ -44,7 +44,7 @@ public class EmModelTests
     [Fact]
     public void PropsRichestOccurrenceDefinesTheElement()
     {
-        var em = EmModel.Parse("""
+        var em = EmParser.Parse("""
             slices:
               A:
                 - e: Shop / ItemAdded
@@ -73,7 +73,7 @@ public class EmModelTests
     [Fact]
     public void ExtendedSliceFormWithStepsKeyIsCollected()
     {
-        var em = EmModel.Parse("""
+        var em = EmParser.Parse("""
             slices:
               Extended:
                 notes: some prose
@@ -93,7 +93,7 @@ public class EmModelTests
     [Fact]
     public void MergeConcatenatesElementsAndDistinctsRolesAndPhases()
     {
-        var merged = EmModel.Merge([Fixtures.ParsedEm, Fixtures.ParsedEm]);
+        var merged = EmParser.Merge([Fixtures.ParsedEm, Fixtures.ParsedEm]);
         merged.Elements.Should().HaveCount(Fixtures.ParsedEm.Elements.Count * 2);
         merged.Slices.Should().HaveCount(4);
         merged.TriggerRoles.Should().BeEquivalentTo("owner", "customer");
@@ -117,7 +117,7 @@ public class EmModelTests
     public void ParseWithoutSlicesRootThrows()
     {
         // Pinned behavior: an emlang doc without a `slices:` root is not parseable.
-        var act = () => EmModel.Parse("foo: 1");
+        var act = () => EmParser.Parse("foo: 1");
         act.Should().Throw<KeyNotFoundException>();
     }
 }

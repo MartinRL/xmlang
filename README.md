@@ -27,7 +27,7 @@ xm lint specs/my-game.xm.yaml
 using Xmlang;
 
 var xm = XmParser.Parse(File.ReadAllText("shop.xm.yaml"));
-var em = EmModel.Parse(File.ReadAllText("shop.em.yaml"));
+var em = EmParser.Parse(File.ReadAllText("shop.em.yaml"));
 var findings = XmLinter.Lint(xm, em);
 ```
 

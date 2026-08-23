@@ -43,5 +43,5 @@ internal static class Fixtures
                 summary: string
         """;
 
-    public static EmSpec ParsedEm => EmModel.Parse(Em);
+    public static EmSpec ParsedEm => EmParser.Parse(Em);
 }

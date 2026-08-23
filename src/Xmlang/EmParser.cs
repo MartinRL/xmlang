@@ -47,7 +47,7 @@ public record EmSpec(
 /// only slice STEPS carry annotations, `tests:` props are fixture values) and extended
 /// with slice keys and trigger roles for journey/persona lint.
 /// </summary>
-public static class EmModel
+public static class EmParser
 {
     public static EmSpec Parse(string yamlText)
     {

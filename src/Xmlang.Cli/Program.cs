@@ -18,7 +18,7 @@ if (xm.Models.Count == 0)
 }
 
 var xmDir = Path.GetDirectoryName(Path.GetFullPath(xmPath))!;
-var em = EmModel.Merge([.. xm.Models.Select(m => EmModel.Parse(File.ReadAllText(Path.Combine(xmDir, m))))]);
+var em = EmParser.Merge([.. xm.Models.Select(m => EmParser.Parse(File.ReadAllText(Path.Combine(xmDir, m))))]);
 
 var findings = XmLinter.Lint(xm, em);
 foreach (var finding in findings)

@@ -2,6 +2,7 @@
 title: "xmlang Specification v0.4.0 (draft)"
 description: "A YAML-based DSL for Experience Models: the sibling dialect to emlang, recording UX judgment as data, never as geometry"
 created: 2026-07-11
+release: v0.4.1
 tags: [spec, xmlang, emlang, experience-modeling, event-modeling, ux]
 ---
 # xmlang Specification v0.4.0 (draft)

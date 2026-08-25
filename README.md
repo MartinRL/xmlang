@@ -1,6 +1,6 @@
 # xmlang
 
-xmlang is a YAML-based DSL for **Experience Models**: the sibling dialect to emlang (Event Modeling as YAML), recording the UX judgments an Event Model deliberately omits — personas, surface composition, field salience, journeys, labels, design tokens — **as data, never as geometry**. The Experience Model depends on the Event Model strictly one-way, and every reference is lintable.
+xmlang is a YAML-based DSL for **Experience Models**: the sibling dialect to emlang (Event Models as YAML), recording the UX judgments an Event Model deliberately omits — personas, surface composition, field salience, journeys, labels, design tokens — **as data, never as geometry**. The Experience Model depends on the Event Model strictly one-way, and every reference is lintable.
 
 The canonical specification lives here: [xmlang-spec.md](xmlang-spec.md). This repository is also the reference implementation: a parser, an Event Model resolution surface, and a linter implementing the spec's full rule set.
 

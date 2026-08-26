@@ -1,0 +1,2 @@
+# Verify snapshots: byte-stable across OSes so approval diffs are real diffs.
+*.verified.* text eol=lf working-tree-encoding=UTF-8

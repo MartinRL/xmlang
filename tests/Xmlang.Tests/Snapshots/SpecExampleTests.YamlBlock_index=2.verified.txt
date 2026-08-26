@@ -1,0 +1,12 @@
+﻿{
+  Personas: [
+    {
+      Name: Accountant,
+      Role: Accountant
+    },
+    {
+      Name: Auditor,
+      Role: Accountant
+    }
+  ]
+}

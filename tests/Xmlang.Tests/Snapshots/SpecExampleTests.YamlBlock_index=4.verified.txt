@@ -1,0 +1,54 @@
+﻿{
+  Surfaces: [
+    {
+      Name: Dashboard,
+      For: [
+        Accountant
+      ],
+      Compose: [
+        {
+          View: {
+            Name: OutstandingInvoices,
+            Primary: [
+              amount,
+              dueDate
+            ],
+            Secondary: [
+              invoiceNumber
+            ],
+            OnDemand: [
+              auditTrail
+            ]
+          }
+        },
+        {
+          View: {
+            Name: CashPosition
+          }
+        },
+        {
+          View: {
+            Name: RecentPayments,
+            Secondary: [
+              payer,
+              method
+            ],
+            Self: payer.accountId
+          }
+        },
+        {
+          Command: {
+            Name: PayInvoice,
+            Prominence: primary
+          }
+        },
+        {
+          Command: {
+            Name: ExportCsv,
+            Prominence: overflow
+          }
+        }
+      ]
+    }
+  ]
+}

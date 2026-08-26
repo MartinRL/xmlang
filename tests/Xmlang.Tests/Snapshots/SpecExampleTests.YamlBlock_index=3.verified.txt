@@ -1,0 +1,45 @@
+﻿{
+  Surfaces: [
+    {
+      Name: Bidding,
+      During: [
+        started
+      ],
+      Compose: [
+        {
+          View: {
+            Name: CurrentLot
+          }
+        },
+        {
+          Command: {
+            Name: PlaceBid,
+            Prominence: primary
+          }
+        }
+      ]
+    },
+    {
+      Name: Lobby,
+      For: [
+        Host
+      ],
+      During: [
+        lobby
+      ],
+      Compose: [
+        {
+          View: {
+            Name: LobbyRoster
+          }
+        },
+        {
+          Command: {
+            Name: StartAuction,
+            Prominence: primary
+          }
+        }
+      ]
+    }
+  ]
+}

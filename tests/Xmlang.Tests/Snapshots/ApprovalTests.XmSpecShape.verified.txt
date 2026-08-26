@@ -1,0 +1,113 @@
+﻿{
+  Version: 0.2,
+  Models: [
+    shop.emlang.yaml
+  ],
+  Personas: [
+    {
+      Name: Owner,
+      Role: owner
+    },
+    {
+      Name: Customer,
+      Role: customer
+    }
+  ],
+  Surfaces: [
+    {
+      Name: Shopfront,
+      For: [
+        Customer
+      ],
+      During: [
+        open
+      ],
+      Compose: [
+        {
+          View: {
+            Name: Storefront,
+            Primary: [
+              items,
+              total
+            ],
+            Secondary: [
+              note
+            ],
+            Self: items.itemId
+          }
+        },
+        {
+          Command: {
+            Name: AddItem,
+            Prominence: primary
+          }
+        }
+      ]
+    },
+    {
+      Name: BackOffice,
+      For: [
+        Owner
+      ],
+      Compose: [
+        {
+          View: {
+            Name: State / Shop
+          }
+        },
+        {
+          Command: {
+            Name: OpenShop,
+            Prominence: overflow
+          }
+        }
+      ]
+    }
+  ],
+  Journeys: [
+    {
+      Name: FirstPurchase,
+      For: [
+        Customer
+      ],
+      Slices: [
+        🧑 OpenShop,
+        🛒 BrowseShop
+      ]
+    }
+  ],
+  Labels: {
+    en: {
+      Elements: {
+        AddItem: {
+          Self: Add item
+        }
+      }
+    },
+    sv: {
+      Register: informell,
+      Elements: {
+        AddItem: {
+          Self: Lägg till
+        },
+        Storefront: {
+          Fields: {
+            items: {
+              Self: Varor,
+              Empty: Tomt!
+            },
+            total: {
+              Self: Summa
+            }
+          }
+        }
+      }
+    }
+  },
+  Tokens: [
+    {
+      Path: color.brand,
+      Value: #0B5FFF
+    }
+  ]
+}

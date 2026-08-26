@@ -1,0 +1,12 @@
+﻿{
+  Tokens: [
+    {
+      Path: color.brand,
+      Value: #0B5FFF
+    },
+    {
+      Path: spacing.md,
+      Value: 16px
+    }
+  ]
+}

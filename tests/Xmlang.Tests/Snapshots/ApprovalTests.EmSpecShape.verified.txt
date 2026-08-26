@@ -1,0 +1,129 @@
+﻿{
+  Elements: [
+    {
+      Kind: c,
+      Lane: ,
+      Name: OpenShop,
+      Fields: [
+        {
+          Name: shopId,
+          Annotation: Guid
+        },
+        {
+          Name: name,
+          Annotation: string
+        }
+      ]
+    },
+    {
+      Kind: e,
+      Lane: Shop,
+      Name: ShopOpened,
+      Fields: [
+        {
+          Name: shopId,
+          Annotation: Guid
+        }
+      ]
+    },
+    {
+      Kind: v,
+      Lane: State,
+      Name: Shop,
+      Fields: [
+        {
+          Name: phase,
+          Annotation: ShopPhase (closed|open)
+        },
+        {
+          Name: shopId,
+          Annotation: Guid
+        }
+      ]
+    },
+    {
+      Kind: c,
+      Lane: ,
+      Name: AddItem,
+      Fields: [
+        {
+          Name: itemId,
+          Annotation: Guid
+        },
+        {
+          Name: quantity,
+          Annotation: int
+        }
+      ]
+    },
+    {
+      Kind: x,
+      Lane: ,
+      Name: ShopClosed
+    },
+    {
+      Kind: e,
+      Lane: Shop,
+      Name: ItemAdded,
+      Fields: [
+        {
+          Name: itemId,
+          Annotation: Guid
+        }
+      ]
+    },
+    {
+      Kind: v,
+      Lane: ,
+      Name: Storefront,
+      Fields: [
+        {
+          Name: items,
+          Annotation: Item[]
+        },
+        {
+          Name: total,
+          Annotation: decimal
+        },
+        {
+          Name: note,
+          Annotation: string
+        }
+      ]
+    },
+    {
+      Kind: v,
+      Lane: Todo,
+      Name: Outstanding bids,
+      Fields: [
+        {
+          Name: bids,
+          Annotation: Bid[]
+        }
+      ]
+    },
+    {
+      Kind: v,
+      Lane: Screen,
+      Name: Results,
+      Fields: [
+        {
+          Name: summary,
+          Annotation: string
+        }
+      ]
+    }
+  ],
+  Slices: [
+    🧑 OpenShop,
+    🛒 BrowseShop
+  ],
+  TriggerRoles: [
+    owner,
+    customer
+  ],
+  PhaseValues: [
+    closed,
+    open
+  ]
+}

@@ -1,0 +1,15 @@
+﻿{
+  Journeys: [
+    {
+      Name: MonthEndClose,
+      For: [
+        Accountant
+      ],
+      Slices: [
+        ReviewOutstandingInvoices,
+        PayInvoice,
+        ExportMonthlyReport
+      ]
+    }
+  ]
+}

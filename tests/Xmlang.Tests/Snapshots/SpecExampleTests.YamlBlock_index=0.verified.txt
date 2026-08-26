@@ -1,0 +1,35 @@
+﻿{
+  Version: 0.2,
+  Models: [
+    billing.emlang.yaml
+  ],
+  Personas: [
+    {
+      Name: Accountant,
+      Role: Accountant
+    }
+  ],
+  Surfaces: [
+    {
+      Name: Dashboard,
+      Compose: [
+        {
+          View: {
+            Name: OutstandingInvoices
+          }
+        },
+        {
+          View: {
+            Name: RecentPayments
+          }
+        },
+        {
+          Command: {
+            Name: PayInvoice,
+            Prominence: primary
+          }
+        }
+      ]
+    }
+  ]
+}

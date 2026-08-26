@@ -1,0 +1,33 @@
+﻿{
+  Labels: {
+    en: {
+      Elements: {
+        PlaceBid: {
+          Self: Place bid
+        }
+      }
+    },
+    sv: {
+      Register: lekfull,
+      Elements: {
+        PlaceBid: {
+          Self: Lägg bud!
+        },
+        Screen / Round results: {
+          Fields: {
+            pricePaid: {
+              Self: Bud
+            },
+            trueWorth: {
+              Self: Sant värde
+            },
+            winnerIds: {
+              Self: Vinnare,
+              Empty: Alla bjöd över!
+            }
+          }
+        }
+      }
+    }
+  }
+}

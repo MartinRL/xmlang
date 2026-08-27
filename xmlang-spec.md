@@ -1,11 +1,12 @@
 ---
-title: "xmlang Specification v0.4.0 (draft)"
+title: "xmlang Specification v0.4.1 (draft)"
 description: "A YAML-based DSL for Experience Models: the sibling dialect to emlang, recording UX judgment as data, never as geometry"
 created: 2026-07-11
+last published: 2026-08-25
 release: v0.4.1
 tags: [spec, xmlang, emlang, experience-modeling, event-modeling, ux]
 ---
-# xmlang Specification v0.4.0 (draft)
+# xmlang Specification v0.4.1 (draft)
 
 xmlang is a YAML-based DSL for describing the Experience Model of an event-modeled system. An Experience Model records the UX judgments an Event Model deliberately omits (personas, surface composition, salience, journeys, labels, tokens) and depends on the Event Model strictly one-way. It is the sibling dialect to [emlang](https://github.com/emlang-project/spec); the rationale is in [How Far Does a Machine-Readable UX Spec Go?](https://martinrl.github.io/articles/machine-readable-ux-specs-research.html).
 

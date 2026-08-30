@@ -2,6 +2,7 @@
 //   xm lint <spec.xm.yaml>
 // Resolves the xm's `model:` Event Model(s) relative to the xm file; exits 1 on any error.
 
+using Emlang;
 using Xmlang;
 
 if (args is not ["lint", var xmPath])

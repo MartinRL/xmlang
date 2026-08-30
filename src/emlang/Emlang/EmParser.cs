@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using YamlDotNet.RepresentationModel;
 
-namespace Xmlang;
+namespace Emlang;
 
 public record EmField(string Name, string Annotation);
 
@@ -37,7 +37,7 @@ public record EmSpec(
         var slash = reference.LastIndexOf('/');
         return slash < 0
             ? ("", reference.Trim())
-            : (reference[..slash].Trim(), reference[(slash + 1)..].Trim());
+            : (reference.Substring(0, slash).Trim(), reference.Substring(slash + 1).Trim());
     }
 }
 
@@ -156,6 +156,6 @@ public static class EmParser
         var close = annotation.IndexOf(')', open + 1);
         return open < 0 || close < 0
             ? []
-            : annotation[(open + 1)..close].Split('|').Select(v => v.Trim());
+            : annotation.Substring(open + 1, close - open - 1).Split('|').Select(v => v.Trim());
     }
 }

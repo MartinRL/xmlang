@@ -1,0 +1,13 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <!-- The emlang family: its own SemVer (release tag emlang-v*), independent of xmlang.
+       README declares "implements emlang spec 1.0.0" — no frontmatter guard against the Go spec. -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <!-- netstandard2.0 defaults to C# 7.3; the sources use records + collection expressions. -->
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>

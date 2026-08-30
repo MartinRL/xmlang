@@ -1,3 +1,5 @@
+using Emlang;
+
 namespace Xmlang.Tests;
 
 /// <summary>Shared synthetic Event Model (emlang) fixture. A tiny two-slice shop:

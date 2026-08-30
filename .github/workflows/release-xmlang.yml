@@ -1,8 +1,8 @@
-name: Release
+name: Release xmlang
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["xmlang-v*"]
 
 permissions:
   contents: read
@@ -16,11 +16,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Guard tag matches Directory.Build.props Version and spec release frontmatter
+      - name: Guard tag matches src/xmlang/Directory.Build.props Version and spec release frontmatter
         run: |
-          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "tag $GITHUB_REF_NAME does not match <Version>$version</Version> in Directory.Build.props"
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/xmlang/Directory.Build.props)
+          if [ "xmlang-v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match <Version>$version</Version> in src/xmlang/Directory.Build.props"
             exit 1
           fi
           release=$(sed -n 's/^release: *//p' xmlang-spec.md)
@@ -29,7 +29,8 @@ jobs:
             exit 1
           fi
       - run: dotnet test -c Release
-      - run: dotnet pack -c Release -o artifacts
+      - run: dotnet pack src/xmlang/Xmlang -c Release -o artifacts
+      - run: dotnet pack src/xmlang/Xmlang.Cli -c Release -o artifacts
       - name: NuGet login (Trusted Publishing, OIDC → short-lived key)
         uses: NuGet/login@v1
         id: login

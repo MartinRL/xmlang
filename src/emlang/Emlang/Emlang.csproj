@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 is the analyzer-host requirement: Emlang.Generators loads this dll
+         inside the compiler process. net10.0 is the modern surface for runtime consumers
+         (Xmlang, the future Emlang.Cli). -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+    <PackageId>Emlang</PackageId>
+    <Description>.NET implementation of the emlang spec (Event Model DSL): EmParser lifts the c:/e:/x:/v: reference surface from a spec, Emlang.CodeGen parses the full record surface and `tests:` GWT cases and emits C# records, closed unions, Decider skeletons and xUnit spec tests.</Description>
+    <PackageTags>emlang;event-modeling;event-sourcing;dsl;yaml;codegen</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <None Include="..\..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

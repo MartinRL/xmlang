@@ -1,4 +1,5 @@
 using System.Text;
+using Emlang;
 using Xunit;
 
 namespace Xmlang.Tests;

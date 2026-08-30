@@ -7,9 +7,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <!-- Shared package metadata. Version minor tracks the spec (xmlang-spec.md); patch is free. -->
+  <!-- Shared package metadata. Version lives in the family Directory.Build.props
+       (src/emlang, src/xmlang) — the two package families release independently. -->
   <PropertyGroup>
-    <Version>0.4.1</Version>
     <Authors>Martin Rosén-Lidholm</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/MartinRL/xmlang</RepositoryUrl>

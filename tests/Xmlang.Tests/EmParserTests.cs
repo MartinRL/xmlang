@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Emlang;
 using Xunit;
 
 namespace Xmlang.Tests;

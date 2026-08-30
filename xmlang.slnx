@@ -1,9 +1,12 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Xmlang/Xmlang.csproj" />
-    <Project Path="src/Xmlang.Cli/Xmlang.Cli.csproj" />
+    <Project Path="src/emlang/Emlang/Emlang.csproj" />
+    <Project Path="src/emlang/Emlang.Generators/Emlang.Generators.csproj" />
+    <Project Path="src/xmlang/Xmlang/Xmlang.csproj" />
+    <Project Path="src/xmlang/Xmlang.Cli/Xmlang.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Emlang.Tests/Emlang.Tests.csproj" />
     <Project Path="tests/Xmlang.Tests/Xmlang.Tests.csproj" />
   </Folder>
 </Solution>

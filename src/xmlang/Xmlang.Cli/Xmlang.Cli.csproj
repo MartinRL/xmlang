@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Xmlang\Xmlang.csproj" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

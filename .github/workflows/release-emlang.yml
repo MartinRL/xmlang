@@ -26,6 +26,7 @@ jobs:
       - run: dotnet test -c Release
       - run: dotnet pack src/emlang/Emlang -c Release -o artifacts
       - run: dotnet pack src/emlang/Emlang.Generators -c Release -o artifacts
+      - run: dotnet pack src/emlang/Emlang.Cli -c Release -o artifacts
       - name: NuGet login (Trusted Publishing, OIDC → short-lived key)
         uses: NuGet/login@v1
         id: login

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>em</ToolCommandName>
+    <PackageId>Emlang.Cli</PackageId>
+    <Description>em — the emlang CLI for .NET. Parses and lints emlang Event Model specs (*.em.yaml) with the reference toolchain's rule set and output format. Phase 1 commands: parse, lint, version, help.</Description>
+    <PackageTags>emlang;event-modeling;event-sourcing;dsl;linter;cli;dotnet-tool</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- A net10.0 tool must run on newer runtimes too. -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Emlang\Emlang.csproj" />
+    <None Include="..\..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

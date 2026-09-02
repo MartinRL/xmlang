@@ -7,7 +7,7 @@ The canonical specification lives here: [xmlang-spec.md](xmlang-spec.md). This r
 The repository also hosts the .NET implementation of [emlang](https://github.com/emlang-project/emlang) itself — xmlang cannot live without it:
 
 - **Emlang** — the em parser (`EmParser`), the codegen model and emitters (`Emlang.CodeGen`), and the line-aware lint surface (`Emlang.Linting`).
-- **Emlang.Cli** — `em`, the .NET clone of the reference Go CLI (`dotnet tool install -g Emlang.Cli`). Phase 1 commands: `em parse` and `em lint` with the reference toolchain's rule set and output format, plus `version`/`help`.
+- **Emlang.Cli** — `em`, the .NET clone of the reference Go CLI (`dotnet tool install -g Emlang.Cli`). Commands so far: `em parse`, `em lint` and `em fmt` (`-w`, `--keys short|long`) with the reference toolchain's rule set and output format, stdin via `-`, plus `version`/`help`.
 - **Emlang.Generators** — Roslyn source generators: point an `AdditionalFiles` item at a `*.em.yaml` spec with `EmlangPrefix` metadata and the Commands/Events/Errors records, closed unions and Decider switch skeletons are emitted into the compilation; projects with `EmlangEmit=tests` get xUnit spec tests instead. The emitted unions require `LangVersion` preview (C# `union` types) in the consuming project.
 
 The emlang packages version and release independently (tags `emlang-v*`) from the xmlang packages (tags `xmlang-v*`).

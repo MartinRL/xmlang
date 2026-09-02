@@ -7,7 +7,8 @@ using Emlang.Linting;
 // (kvissig's Go lint depends on it). Output formats mirror the reference CLI
 // byte-for-byte on valid specs (props/tests print in document order, which the
 // Go CLI leaves to map iteration order).
-// ponytail: no stdin '-' yet — it arrives with fmt/repl (phase 2+).
+// Phase 2: fmt (-w, --keys short|long, fmt.keys config) + stdin '-' everywhere.
+// Like the reference, fmt renders from the AST — comments are dropped.
 
 Console.OutputEncoding = Encoding.UTF8;
 // Byte parity with the Go CLI, which emits \n on every platform.
@@ -36,6 +37,8 @@ switch (remaining[0])
         return CmdParse(remaining.Skip(1).ToArray());
     case "lint":
         return CmdLint(remaining.Skip(1).ToArray(), configPath);
+    case "fmt":
+        return CmdFmt(remaining.Skip(1).ToArray(), configPath);
     default:
         Console.Error.WriteLine($"Unknown command: {remaining[0]}");
         PrintUsage();
@@ -58,9 +61,9 @@ static (List<string> Remaining, string ConfigPath) ExtractConfigFlag(string[] ar
 }
 
 // The Go CLI's config resolution: -c flag > EMLANG_CONFIG env > .emlang.yaml in cwd.
-// A missing default file is fine; a missing explicit path is an error. Phase 1 only
-// reads lint.ignore.
-static IReadOnlyList<string>? LoadLintIgnore(string configPath)
+// A missing default file is fine; a missing explicit path is an error. Phase 2 reads
+// lint.ignore + fmt.keys.
+static (IReadOnlyList<string> LintIgnore, string FmtKeys)? LoadConfig(string configPath)
 {
     var explicitPath = configPath.Length > 0
         ? configPath
@@ -70,7 +73,7 @@ static IReadOnlyList<string>? LoadLintIgnore(string configPath)
     if (!File.Exists(path))
     {
         if (explicitPath.Length == 0)
-            return [];
+            return ([], "");
         Console.Error.WriteLine($"Error loading config: reading config: {path}: file not found");
         return null;
     }
@@ -80,18 +83,28 @@ static IReadOnlyList<string>? LoadLintIgnore(string configPath)
         var stream = new YamlDotNet.RepresentationModel.YamlStream();
         stream.Load(new StringReader(File.ReadAllText(path)));
         var rules = new List<string>();
+        var fmtKeys = "";
         if (stream.Documents.Count > 0
-            && stream.Documents[0].RootNode is YamlDotNet.RepresentationModel.YamlMappingNode root
-            && root.Children.TryGetValue("lint", out var lintNode)
-            && lintNode is YamlDotNet.RepresentationModel.YamlMappingNode lint
-            && lint.Children.TryGetValue("ignore", out var ignoreNode)
-            && ignoreNode is YamlDotNet.RepresentationModel.YamlSequenceNode ignore)
+            && stream.Documents[0].RootNode is YamlDotNet.RepresentationModel.YamlMappingNode root)
         {
-            foreach (var rule in ignore.Children)
-                rules.Add(rule.ToString());
+            if (root.Children.TryGetValue("lint", out var lintNode)
+                && lintNode is YamlDotNet.RepresentationModel.YamlMappingNode lint
+                && lint.Children.TryGetValue("ignore", out var ignoreNode)
+                && ignoreNode is YamlDotNet.RepresentationModel.YamlSequenceNode ignore)
+            {
+                foreach (var rule in ignore.Children)
+                    rules.Add(rule.ToString());
+            }
+
+            if (root.Children.TryGetValue("fmt", out var fmtNode)
+                && fmtNode is YamlDotNet.RepresentationModel.YamlMappingNode fmt
+                && fmt.Children.TryGetValue("keys", out var keysNode))
+            {
+                fmtKeys = keysNode.ToString();
+            }
         }
 
-        return rules;
+        return (rules, fmtKeys);
     }
     catch (YamlDotNet.Core.YamlException ex)
     {
@@ -118,19 +131,21 @@ static void PrintUsage()
     Console.WriteLine("  -c, --config <file>  Path to config file (default: .emlang.yaml, or EMLANG_CONFIG env)");
     Console.WriteLine();
     Console.WriteLine("Commands:");
-    Console.WriteLine("  parse <file>         Parse a YAML source file and show structure");
-    Console.WriteLine("  lint <file>          Lint a YAML source file for issues");
+    Console.WriteLine("  parse <file>         Parse a YAML source file and show structure (use - for stdin)");
+    Console.WriteLine("  lint <file>          Lint a YAML source file for issues (use - for stdin)");
+    Console.WriteLine("  fmt <file>           Format a YAML source file (use - for stdin, -w for in-place)");
+    Console.WriteLine("                       --keys short|long: override key style");
     Console.WriteLine("  version              Print version information");
     Console.WriteLine("  help                 Show this help message");
 }
 
 static EmDocument? ParseFile(string path, out string name)
 {
-    name = path;
+    name = path == "-" ? "<stdin>" : path;
     string text;
     try
     {
-        text = File.ReadAllText(path);
+        text = path == "-" ? Console.In.ReadToEnd() : File.ReadAllText(path);
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
     {
@@ -240,12 +255,12 @@ static int CmdLint(string[] args, string configPath)
         return 1;
     }
 
-    if (LoadLintIgnore(configPath) is not { } ignoreRules)
+    if (LoadConfig(configPath) is not { } config)
         return 1;
     if (ParseFile(args[0], out var name) is not { } document)
         return 1;
 
-    var issues = Linter.Lint(document, ignoreRules);
+    var issues = Linter.Lint(document, config.LintIgnore);
 
     if (issues.Count == 0)
     {
@@ -265,4 +280,76 @@ static int CmdLint(string[] args, string configPath)
     Console.WriteLine($"Summary: {errorCount} error(s), {warningCount} warning(s)");
 
     return errorCount > 0 ? 1 : 0;
+}
+
+static int CmdFmt(string[] args, string configPath)
+{
+    var write = false;
+    var keysFlag = "";
+    var keysFlagSet = false;
+    var files = new List<string>();
+    for (var i = 0; i < args.Length; i++)
+    {
+        switch (args[i])
+        {
+            case "-w" or "--write":
+                write = true;
+                break;
+            case "--keys" when i + 1 < args.Length:
+                keysFlag = args[++i];
+                keysFlagSet = true;
+                break;
+            case var arg when arg.StartsWith("--keys=", StringComparison.Ordinal):
+                keysFlag = arg.Substring("--keys=".Length);
+                keysFlagSet = true;
+                break;
+            default:
+                files.Add(args[i]);
+                break;
+        }
+    }
+
+    if (files.Count < 1)
+    {
+        Console.Error.WriteLine("Usage: em fmt [-w] [--keys short|long] <file>");
+        return 1;
+    }
+
+    var input = files[0];
+    if (write && input == "-")
+    {
+        Console.Error.WriteLine("Error: -w cannot be used with stdin");
+        return 1;
+    }
+
+    if (LoadConfig(configPath) is not { } config)
+        return 1;
+    if (ParseFile(input, out _) is not { } document)
+        return 1;
+
+    // Priority mirrors the Go CLI: flag > config fmt.keys > "long".
+    var keyStyle = config.FmtKeys.Length > 0 ? config.FmtKeys : "long";
+    if (keysFlagSet)
+        keyStyle = keysFlag;
+
+    var output = EmFormatter.Format(document, keyStyle);
+
+    if (write)
+    {
+        try
+        {
+            File.WriteAllText(input, output);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Error writing {input}: {ex.Message}");
+            return 1;
+        }
+    }
+    else
+    {
+        Console.Out.Write(output);
+    }
+
+    return 0;
 }

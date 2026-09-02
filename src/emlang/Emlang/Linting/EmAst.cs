@@ -35,11 +35,16 @@ public sealed record EmElement(
     int Line,
     int Column);
 
+/// <summary>The Has* flags record which section keys were present in the source
+/// (the Go AST's HasGiven/HasWhen/HasThen), so fmt can round-trip empty sections.</summary>
 public sealed record EmTest(
     string Name,
     IReadOnlyList<EmElement> Given,
     IReadOnlyList<EmElement> When,
-    IReadOnlyList<EmElement> Then);
+    IReadOnlyList<EmElement> Then,
+    bool HasGiven = false,
+    bool HasWhen = false,
+    bool HasThen = false);
 
 public sealed record EmSlice(
     string Name,
@@ -229,6 +234,7 @@ public static class EmAst
             throw new FormatException($"test must be a mapping at line {LineOf(node)}");
 
         IReadOnlyList<EmElement> given = [], when = [], then = [];
+        bool hasGiven = false, hasWhen = false, hasThen = false;
         foreach (var entry in mapping.Children)
         {
             var key = KeyOf(entry.Key);
@@ -236,19 +242,22 @@ public static class EmAst
             {
                 case "given":
                     given = ParseTestSection("given", entry.Value, AllowedGiven);
+                    hasGiven = true;
                     break;
                 case "when":
                     when = ParseTestSection("when", entry.Value, AllowedWhen);
+                    hasWhen = true;
                     break;
                 case "then":
                     then = ParseTestSection("then", entry.Value, AllowedThen);
+                    hasThen = true;
                     break;
                 default:
                     throw new FormatException($"unknown test key \"{key}\" at line {LineOf(entry.Key)}");
             }
         }
 
-        return new EmTest(name, given, when, then);
+        return new EmTest(name, given, when, then, hasGiven, hasWhen, hasThen);
     }
 
     private static IReadOnlyList<EmElement> ParseTestSection(

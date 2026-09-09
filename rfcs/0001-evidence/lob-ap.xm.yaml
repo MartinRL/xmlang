@@ -1,0 +1,598 @@
+# LOB-AP — Experience Model (xmlang v0.5) over lob-ap.em.yaml.
+# Written as a UX designer for an accounts-payable product would, using ONLY the current
+# vocabulary: personas · surfaces (compose / for / during / fields / self / prominence) ·
+# journeys · labels · tokens. Every judgment the designer wanted to record and COULD NOT is
+# listed in p1-lob.md §2 (the LOB wish list), cross-referenced here as W-n comments.
+#
+# Reading note on `during`: in the games one stream = one system lifecycle. Here `phase` is
+# the phase of ONE invoice, and the product has thousands. `during` therefore reads as "the
+# phase of the invoice the surface is about" — the spec's "system's lifecycle" wording does
+# not fit (W-1). Surfaces about no particular invoice (directory, worklist, dashboards) carry
+# no `during` and are active always, which is correct.
+
+xmlang: "0.5"
+model: lob-ap.em.yaml
+
+personas:
+  Clerk:
+    role: 🧾 Clerk
+    props:
+      goal: register every supplier invoice the day it arrives; keep nothing stuck in draft or rejected
+      device: desktop, two monitors, keyboard-first; scanned PDF open beside the form
+      volume: 40-80 invoices a day
+  Approver:
+    role: ✅ Approver
+    props:
+      goal: clear the approval inbox in one sitting, twice a day; never approve blind
+      device: laptop and phone (approves from the train)
+      volume: 10-30 decisions a day, mostly routine
+  Controller:
+    role: 🔍 Controller
+    props:
+      goal: month-end cash position, dispute handling, audit evidence on any invoice within a minute
+      device: desktop
+      posture: read-only on documents; owns holds only
+  Admin:
+    role: 🛠️ Admin
+    props:
+      goal: keep supplier master data clean; deactivate, never delete
+      device: desktop
+      volume: a few changes a week
+
+surfaces:
+
+  # --- Master data ----------------------------------------------------------
+
+  SupplierDirectory:
+    for: [Admin, Controller, Clerk]
+    compose:
+      - v: Supplier list
+        fields:
+          primary: [suppliers]
+          secondary: [query, statusFilter]
+      - c: CreateSupplier
+        prominence: primary          # W-8: only Admin may act; composing it here shows it to Controller/Clerk who cannot
+
+  SupplierRecord:
+    for: [Admin]
+    compose:
+      - v: Supplier details
+        fields:
+          primary: [name, supplierNumber, status, bankAccount, paymentTermsDays]
+          secondary: [vatNumber, openInvoices]
+          on-demand: [supplierId, version]
+      - c: UpdateSupplier
+        prominence: primary
+      - c: DeactivateSupplier
+        prominence: overflow         # W-5: destructive, reason-bearing, blocked while openInvoices > 0 — none expressible
+      - c: ReactivateSupplier
+        prominence: overflow         # W-6: mutually exclusive with Deactivate on `status`; both are composed
+
+  SupplierRecordReadOnly:
+    for: [Controller, Clerk]
+    compose:
+      - v: Supplier details
+        fields:
+          primary: [name, supplierNumber, status, paymentTermsDays, openInvoices]
+          secondary: [vatNumber, bankAccount]
+          on-demand: [supplierId, version]
+
+  # --- Invoice worklist and dashboards ---------------------------------------
+
+  InvoiceWorklist:
+    for: [Clerk, Controller]
+    compose:
+      - v: Invoice list
+        fields:
+          primary: [rows, phaseFilter]
+          secondary: [supplierFilter, dueBefore, query, totalCount]
+      - c: DraftInvoice
+        prominence: primary          # W-2: the create form is a multi-section form (header / lines / attachments) — grouping inexpressible
+
+  ClerkHome:
+    for: [Clerk]
+    compose:
+      - v: Outstanding invoices
+        self: viewerId
+        fields:
+          primary: [myRejected, myDrafts, approvedUnscheduled, counts]
+          secondary: [awaitingApproval, overdue, onHold]
+      - c: DraftInvoice
+        prominence: primary
+
+  ApproverHome:
+    for: [Approver]
+    compose:
+      - v: Approval queue
+        self: approverId
+        fields:
+          primary: [pending]
+          secondary: [lastBulkResult]
+          on-demand: [blocked]
+      - c: ApproveInvoices
+        prominence: primary          # W-3: bulk = acts on a selection of `pending` rows; the row→command binding is inexpressible
+      - c: ApproveInvoice
+        prominence: secondary        # W-4: per-row action, same gap
+      - c: RejectInvoice
+        prominence: secondary        # W-7: reason is mandatory — the "ask before commit" step is inexpressible
+
+  ControllerHome:
+    for: [Controller]
+    compose:
+      - v: Cash position
+        fields:
+          primary: [scheduledOutflow, approvedUnscheduledTotal, onHoldTotal]
+          secondary: [byAccount, paidLast30Days]
+          on-demand: [asOf]
+      - v: Outstanding invoices
+        fields:
+          primary: [overdue, onHold, counts]
+          on-demand: [myDrafts, myRejected, awaitingApproval, approvedUnscheduled, viewerId]
+      - v: Payment run log
+        fields:
+          primary: [runs]
+          on-demand: [fromDate, toDate]
+
+  PaymentRuns:
+    for: [Controller, Clerk]
+    compose:
+      - v: Payment run log
+        fields:
+          primary: [runs]
+          secondary: [fromDate, toDate]
+
+  # --- The invoice record, per persona × phase -------------------------------
+  # Same view composed nine times: the salience and the action set differ per cell of the
+  # during × for lattice. This is the LOB analogue of LobbyVärd/LobbySpelare, at scale.
+
+  InvoiceDraft:
+    for: [Clerk]
+    during: [draft]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, invoiceDate, dueDate, lines, totalAmount, costCenter, attachmentIds]
+          secondary: [currency, netAmount, vatAmount, phase]
+          on-demand: [invoiceId, supplierId, createdBy, version]
+      - c: EditDraft
+        prominence: primary          # W-9: this IS the surface's posture (editable in place, save-and-continue); primary says nothing of that
+      - c: SubmitInvoice
+        prominence: primary          # W-10: after submit the clerk should ADVANCE to the next draft, not stay
+      - c: DiscardDraft
+        prominence: overflow         # W-5: irreversible — needs confirmation; overflow only hides it
+
+  InvoiceSubmittedClerk:
+    for: [Clerk]
+    during: [submitted]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, totalAmount, dueDate, phase]
+          secondary: [lines, costCenter, attachmentIds, invoiceDate]
+          on-demand: [currency, netAmount, vatAmount, invoiceId, supplierId, createdBy, version]
+      - c: WithdrawSubmission
+        prominence: secondary
+
+  InvoiceRejectedClerk:
+    for: [Clerk]
+    during: [rejected]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [rejectionReason, supplierName, invoiceNumber, totalAmount, phase]
+          secondary: [lines, costCenter, dueDate, attachmentIds]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, invoiceId, supplierId, createdBy, version]
+      - c: ReopenInvoice
+        prominence: primary
+
+  InvoiceApprovedClerk:
+    for: [Clerk]
+    during: [approved]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, totalAmount, dueDate, phase]
+          secondary: [lines, costCenter, currency]
+          on-demand: [netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, createdBy, version]
+      - c: SchedulePayment
+        prominence: primary
+
+  InvoiceScheduledClerk:
+    for: [Clerk]
+    during: [scheduled]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, totalAmount, paymentDate, phase]
+          secondary: [dueDate, lines, costCenter]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, createdBy, version]
+
+  InvoicePaidClerk:
+    for: [Clerk]
+    during: [paid]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, totalAmount, paymentDate, bankReference, phase]
+          secondary: [dueDate, lines, costCenter]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, createdBy, version]
+      - c: ReversePayment
+        prominence: overflow         # W-5 / W-7: rare, reason-bearing, needs confirmation
+
+  InvoiceDecision:
+    for: [Approver]
+    during: [submitted]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, totalAmount, currency, lines, costCenter, attachmentIds, dueDate]
+          secondary: [invoiceNumber, invoiceDate, netAmount, vatAmount, createdBy, phase]
+          on-demand: [invoiceId, supplierId, version]
+      - c: ApproveInvoice
+        prominence: primary          # W-11: after approve, ADVANCE to the next pending invoice (inbox rhythm)
+      - c: RejectInvoice
+        prominence: secondary        # W-7: mandatory reason → ask-then-commit
+
+  InvoiceApprovedApprover:
+    for: [Approver]
+    during: [approved, scheduled]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, totalAmount, phase, paymentDate]
+          secondary: [lines, costCenter, dueDate]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, createdBy, version]
+      - c: VoidInvoice
+        prominence: overflow         # W-5: irreversible with a compensating ledger event; the strongest confirmation in the product
+
+  InvoiceControllerOpen:
+    for: [Controller]
+    during: [submitted, approved]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [supplierName, invoiceNumber, totalAmount, phase, dueDate]
+          secondary: [lines, costCenter, createdBy]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, version]
+      - v: Audit trail
+        fields:
+          primary: [entries]
+          on-demand: [invoiceId]
+      - c: HoldInvoice
+        prominence: secondary        # W-7
+
+  InvoiceControllerHeld:
+    for: [Controller]
+    during: [onHold]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [holdReason, supplierName, invoiceNumber, totalAmount, phase]
+          secondary: [lines, dueDate, costCenter]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, createdBy, version]
+      - v: Audit trail
+        fields:
+          primary: [entries]
+          on-demand: [invoiceId]
+      - c: ReleaseHold
+        prominence: primary
+
+  InvoiceHeldOthers:
+    for: [Clerk, Approver]
+    during: [onHold]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [holdReason, supplierName, invoiceNumber, totalAmount, phase]
+          secondary: [lines, dueDate, costCenter]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, createdBy, version]
+
+  InvoiceClosed:
+    # voided / discarded / rejected-for-approver / paid-for-non-clerk: the record is history
+    during: [voided, discarded]
+    compose:
+      - v: Invoice details
+        fields:
+          primary: [phase, voidReason, supplierName, invoiceNumber, totalAmount]
+          secondary: [lines, dueDate, costCenter, createdBy]
+          on-demand: [currency, netAmount, vatAmount, invoiceDate, attachmentIds, invoiceId, supplierId, version, paymentDate, bankReference, holdReason, rejectionReason]
+      - v: Audit trail
+        fields:
+          primary: [entries]
+          on-demand: [invoiceId]
+
+  InvoiceHistory:
+    for: [Controller, Approver, Clerk]
+    compose:
+      - v: Audit trail
+        fields:
+          primary: [entries]
+          on-demand: [invoiceId]
+
+journeys:
+  RegisterToPaid:
+    for: [Clerk]
+    slices:
+      - ✍️ Draft Invoice
+      - ✍️ Submit Invoice
+      - ✍️ Approve Invoice
+      - ✍️ Schedule Payment
+      - ✍️ Execute Payment Run
+  RejectAndResubmit:
+    for: [Clerk, Approver]
+    slices:
+      - ✍️ Draft Invoice
+      - ✍️ Submit Invoice
+      - ✍️ Reject Invoice
+      - ✍️ Reopen Rejected Invoice
+      - ✍️ Edit Draft
+      - ✍️ Submit Invoice
+      - ✍️ Approve Invoice
+  ClearTheInbox:
+    for: [Approver]
+    slices:
+      - ✍️ Bulk Approve
+      - ✍️ Reject Invoice
+  DisputeAndRelease:
+    for: [Controller]
+    slices:
+      - ✍️ Place On Hold
+      - ✍️ Release Hold
+      - ✍️ Approve Invoice
+  VoidDuplicate:
+    for: [Approver]
+    slices:
+      - ✍️ Approve Invoice
+      - ✍️ Void Invoice
+  BouncedPayment:
+    for: [Clerk]
+    slices:
+      - ✍️ Schedule Payment
+      - ✍️ Execute Payment Run
+      - ✍️ Reverse Payment
+      - ✍️ Schedule Payment
+  SupplierLifecycle:
+    for: [Admin]
+    slices:
+      - ✍️ Create Supplier
+      - ✍️ Edit Supplier
+      - ✍️ Deactivate Supplier
+      - ✍️ Reactivate Supplier
+
+labels:
+  en:
+    register: formal, terse, finance vocabulary
+    # personas
+    Clerk: AP clerk
+    Approver: Approver
+    Controller: Controller
+    Admin: Administrator
+    # commands (+ form fields)
+    CreateSupplier:
+      $self: New supplier
+      supplierNumber: Supplier no.
+      name: Legal name
+      vatNumber: VAT number
+      bankAccount: IBAN
+      paymentTermsDays: Payment terms (days)
+    UpdateSupplier: Edit
+    DeactivateSupplier:
+      $self: Deactivate supplier
+      reason: Reason
+    ReactivateSupplier: Reactivate supplier
+    DraftInvoice:
+      $self: New invoice
+      supplierId: Supplier
+      invoiceNumber: Invoice no.
+      invoiceDate: Invoice date
+      dueDate: Due date
+      currency: Currency
+      lines: Lines
+      costCenter: Cost center
+      attachmentIds: Attachments
+    EditDraft: Save draft
+    DiscardDraft: Discard draft
+    SubmitInvoice: Submit for approval
+    WithdrawSubmission: Withdraw
+    ReopenInvoice: Reopen as draft
+    ApproveInvoice:
+      $self: Approve
+      comment: Comment (optional)
+    RejectInvoice:
+      $self: Reject
+      reason: Reason for rejection
+    ApproveInvoices:
+      $self: Approve selected
+      comment: Comment (optional)
+    HoldInvoice:
+      $self: Put on hold
+      reason: Reason for hold
+    ReleaseHold:
+      $self: Release hold
+      resolution: Resolution
+    SchedulePayment:
+      $self: Schedule payment
+      paymentDate: Payment date
+      bankAccountId: Pay from account
+    ReversePayment:
+      $self: Reverse payment
+      reason: Reason for reversal
+    VoidInvoice:
+      $self: Void invoice
+      reason: Reason for voiding
+    # views
+    "Supplier list":
+      suppliers:
+        $self: Suppliers
+        $empty: No suppliers yet. Create the first one.
+      query: Search
+      statusFilter: Status
+    "Supplier details":
+      supplierNumber: Supplier no.
+      name: Legal name
+      vatNumber: VAT number
+      bankAccount: IBAN
+      paymentTermsDays: Payment terms
+      status: Status
+      openInvoices:
+        $self: Open invoices
+        $empty: No open invoices
+    "Invoice list":
+      rows:
+        $self: Invoices
+        $empty: No invoices match the current filter.
+      phaseFilter: Status
+      supplierFilter: Supplier
+      dueBefore: Due before
+      query: Search
+      totalCount: Results
+    "Invoice details":
+      invoiceNumber: Invoice no.
+      supplierName: Supplier
+      invoiceDate: Invoice date
+      dueDate: Due date
+      lines: Lines
+      netAmount: Net
+      vatAmount: VAT
+      totalAmount: Total
+      costCenter: Cost center
+      attachmentIds:
+        $self: Attachments
+        $empty: No attachment
+      phase: Status
+      holdReason: On hold because
+      rejectionReason: Rejected because
+      voidReason: Voided because
+      paymentDate: Payment date
+      bankReference: Bank reference
+      createdBy: Registered by
+    "Approval queue":
+      pending:
+        $self: Awaiting your approval
+        $empty: Nothing to approve. Well done.
+      blocked:
+        $self: Awaiting others
+        $empty: Nothing is blocked for you.
+      lastBulkResult: Last bulk approval
+    "Outstanding invoices":
+      myDrafts:
+        $self: My drafts
+        $empty: No drafts
+      myRejected:
+        $self: Rejected, needs action
+        $empty: Nothing rejected
+      awaitingApproval:
+        $self: Awaiting approval
+        $empty: Nothing awaiting approval
+      approvedUnscheduled:
+        $self: Approved, not yet scheduled
+        $empty: Everything approved is scheduled
+      overdue:
+        $self: Overdue
+        $empty: Nothing overdue
+      onHold:
+        $self: On hold
+        $empty: Nothing on hold
+      counts: Summary
+    "Cash position":
+      scheduledOutflow: Scheduled outflow by week
+      approvedUnscheduledTotal: Approved, not scheduled
+      paidLast30Days: Paid last 30 days
+      onHoldTotal: On hold
+      byAccount: By account
+      asOf: As of
+    "Payment run log":
+      runs:
+        $self: Payment runs
+        $empty: No payment runs in this period
+      fromDate: From
+      toDate: To
+    "Audit trail":
+      entries:
+        $self: History
+        $empty: No changes recorded
+    # surfaces (headings)
+    SupplierDirectory: Suppliers
+    SupplierRecord: Supplier
+    SupplierRecordReadOnly: Supplier
+    InvoiceWorklist: Invoices
+    ClerkHome: My work
+    ApproverHome: Approvals
+    ControllerHome: Cash and control
+    PaymentRuns: Payment runs
+    InvoiceDraft: Draft invoice
+    InvoiceSubmittedClerk: Invoice — awaiting approval
+    InvoiceRejectedClerk: Invoice — rejected
+    InvoiceApprovedClerk: Invoice — approved
+    InvoiceScheduledClerk: Invoice — payment scheduled
+    InvoicePaidClerk: Invoice — paid
+    InvoiceDecision: Approve invoice
+    InvoiceApprovedApprover: Invoice
+    InvoiceControllerOpen: Invoice
+    InvoiceControllerHeld: Invoice — on hold
+    InvoiceHeldOthers: Invoice — on hold
+    InvoiceClosed: Invoice — closed
+    InvoiceHistory: Invoice history
+    # journeys
+    RegisterToPaid: Register to paid
+    RejectAndResubmit: Reject and resubmit
+    ClearTheInbox: Clear the inbox
+    DisputeAndRelease: Dispute and release
+    VoidDuplicate: Void a duplicate
+    BouncedPayment: Bounced payment
+    SupplierLifecycle: Supplier lifecycle
+    # W-12: NO key can label an exception (x: ConcurrentEdit, CannotApproveOwnInvoice …) or a
+    # phase VALUE (draft → "Draft", onHold → "On hold"); both are hand-written copy today.
+
+# Sanctioned visual vocabulary. Status colours are named by phase value BY CONVENTION only:
+# nothing in xmlang links a token to an enum value (W-13).
+tokens:
+  color:
+    brand:
+      $type: color
+      $value: "#0B5FFF"
+    ink:
+      $type: color
+      $value: "#1B1F24"
+    surface:
+      $type: color
+      $value: "#FFFFFF"
+    status:
+      draft:
+        $type: color
+        $value: "#6B7280"
+      submitted:
+        $type: color
+        $value: "#2563EB"
+      onHold:
+        $type: color
+        $value: "#B45309"
+      approved:
+        $type: color
+        $value: "#059669"
+      rejected:
+        $type: color
+        $value: "#DC2626"
+      scheduled:
+        $type: color
+        $value: "#0891B2"
+      paid:
+        $type: color
+        $value: "#065F46"
+      voided:
+        $type: color
+        $value: "#374151"
+      discarded:
+        $type: color
+        $value: "#9CA3AF"
+  spacing:
+    md:
+      $type: dimension
+      $value: 16px
+  font:
+    body:
+      $type: fontFamily
+      $value: [Inter, system-ui, sans-serif]
+    numeric:
+      $type: fontFamily
+      $value: ["IBM Plex Mono", ui-monospace, monospace]

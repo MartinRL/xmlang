@@ -1,0 +1,1336 @@
+# LOB-AP — Event-Modeling spec for an Accounts-Payable invoice flow (line-of-business testbed).
+# Written for the xmlang Interaction-Model research (Phase 1, agent 11). Same emlang dialect
+# and local conventions as tests/Emlang.Tests/fixtures/blindbudet.em.yaml:
+#
+#   slice markers          ✍️ state change · 👀 state view · 📋 todo (processor read-model)
+#   triggers               actor role + originating screen   (t: 🧾 Clerk /Invoice details)
+#   commands               bare                              (SubmitInvoice)
+#   events                 carry the stream                  (Invoice / InvoiceSubmitted)
+#   exceptions             bare, between c: and e:           (x: CannotApproveOwnInvoice)
+#   screen views           bare data nouns                   (Invoice details, Approval queue)
+#   State / ...            the deciders' folded decision models (read by `decide`)
+#   Todo / ...             processor-facing read-models the ⚙️ System observes (never shown)
+#
+# Roles (swimlanes):
+#   🧾 Clerk        registers and maintains invoices, schedules payments
+#   ✅ Approver     approves / rejects / voids within an approval limit
+#   🔍 Controller   auditor; READ-ONLY on invoices and payments; owns the dispute hold
+#   🛠️ Admin        supplier master data
+#   ⚙️ System       automations (payment run, approval reminder)
+#
+# TWO deciders live here: State / Supplier (master data) and State / Invoice (the document).
+# Only State / Invoice carries a prop named `phase` — xmlang's `during` resolves against the
+# union of every State-lane `phase` enum, so the supplier lifecycle is deliberately named
+# `status` to keep the phase namespace single-valued. (Finding for the team: multi-decider
+# models need a phase NAMESPACE, see p1-lob.md.)
+#
+# Invoice lifecycle (phase: InvoicePhase):
+#   draft ──Submit──▶ submitted ──Approve──▶ approved ──Schedule──▶ scheduled ──⚙️ Payment run──▶ paid
+#     ▲                  │   │                  │  ▲                    │                        │
+#     │◀── Withdraw ─────┘   └─Reject─▶ rejected│  └── ReversePayment ──┼────────────────────────┘
+#     │◀────────── Reopen ──────────────────────┘                       │
+#   discarded (from draft only, irreversible)          voided ◀── Void (approved|scheduled, irreversible,
+#   onHold  ◀─── Hold (submitted|approved) ─── Release ─▶ back to heldFromPhase      + compensating LiabilityReversed)
+#
+# Optimistic locking: every editing command carries expectedVersion; State carries version;
+# mismatch → x: ConcurrentEdit. Per-viewer guards: x: CannotApproveOwnInvoice (approver ==
+# createdBy), x: ExceedsApprovalLimit (amount > the approver's limit, resolved via an
+# ApproverContext dependency, same pattern as BlindBudet's GameContext).
+#
+# Prop types (intended C# types):
+#   ids                    Guid          (supplierId, invoiceId, paymentRunId, userIds)
+#   money                  decimal       (amount, cashBalance — currency is per invoice: currency: string ISO-4217)
+#   dates                  DateOnly      (invoiceDate, dueDate, paymentDate, runDate)
+#   timestamps (*At)       DateTimeOffset
+#   version                int           (monotonic per stream; expectedVersion on commands)
+#   reason                 string        (MANDATORY on Reject / Hold / Void / ReversePayment — x: ReasonRequired when empty)
+#
+# Fixtures referenced by name in tests (resolve to Fixtures.* in generated SpecTests):
+#   supplierAcme        = active supplier { supplierId: acmeId, supplierNumber: S-1001, name: Acme AB }
+#   supplierAcmeInactive= same, status: inactive
+#   clerkAnna = annaId (Clerk) · approverBo = boId (limit 50000) · approverCarl = carlId (limit 500000)
+#   controllerDina = dinaId · adminErik = erikId
+#   line1 = InvoiceLine { description: Consulting, quantity: 10, unitPrice: 1000, vatRate: 25 }
+
+slices:
+
+  # --- Supplier master data (Admin) ------------------------------------------
+
+  👀 Supplier Directory:
+    steps:
+      - v: Supplier list
+        props:
+          suppliers: SupplierRow[]      # { supplierId: Guid, supplierNumber: string, name: string, status: SupplierStatus (active|inactive), openInvoiceCount: int }
+          query: string                 # free-text filter (number, name)
+          statusFilter: SupplierStatus? # null = all
+    tests:
+      directory lists created suppliers with their status:
+        given:
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001, name: Acme AB }
+          - e: Supplier / SupplierCreated
+            props: { supplierId: beteId, supplierNumber: S-1002, name: Beta Ltd }
+          - e: Supplier / SupplierDeactivated
+            props: { supplierId: beteId }
+        then:
+          - v: Supplier list
+            props:
+              suppliers: [rowAcmeActive, rowBetaInactive]
+
+  # Admin creates a supplier from the directory. supplierNumber is unique across the tenant;
+  # the uniqueness set is resolved via a SupplierContext dependency (read model), not the stream.
+  ✍️ Create Supplier:
+    steps:
+      - t: 🛠️ Admin /Supplier list
+      - c: CreateSupplier
+        props:
+          supplierNumber: string
+          name: string
+          vatNumber: string
+          bankAccount: string          # IBAN
+          paymentTermsDays: int
+      - x: DuplicateSupplierNumber
+      - x: InvalidBankAccount
+      - e: Supplier / SupplierCreated
+        props:
+          supplierId: Guid
+          supplierNumber: string
+          name: string
+          vatNumber: string
+          bankAccount: string
+          paymentTermsDays: int
+          createdBy: Guid
+          createdAt: DateTimeOffset
+      - v: Supplier details
+    tests:
+      supplier can be created:
+        given: []
+        when:
+          - c: CreateSupplier
+            props: { supplierNumber: S-1001, name: Acme AB, vatNumber: SE556000000001, bankAccount: SE4550000000058398257466, paymentTermsDays: 30 }
+        then:
+          - e: Supplier / SupplierCreated
+            props: { supplierId: minted, supplierNumber: S-1001, name: Acme AB, paymentTermsDays: 30, createdBy: erikId }
+      cannot reuse a supplier number:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, supplierNumber: S-1001, status: active }
+        when:
+          - c: CreateSupplier
+            props: { supplierNumber: S-1001, name: Acme Clone }
+        then:
+          - x: DuplicateSupplierNumber
+      cannot create with malformed bank account:
+        given: []
+        when:
+          - c: CreateSupplier
+            props: { supplierNumber: S-1003, name: Gamma, bankAccount: not-an-iban }
+        then:
+          - x: InvalidBankAccount
+
+  # Optimistic lock: expectedVersion must equal the folded version.
+  ✍️ Edit Supplier:
+    steps:
+      - t: 🛠️ Admin /Supplier details
+      - c: UpdateSupplier
+        props:
+          supplierId: Guid
+          expectedVersion: int
+          name: string
+          vatNumber: string
+          bankAccount: string
+          paymentTermsDays: int
+      - x: SupplierNotFound
+      - x: ConcurrentEdit
+      - x: InvalidBankAccount
+      - e: Supplier / SupplierUpdated
+        props:
+          supplierId: Guid
+          name: string
+          vatNumber: string
+          bankAccount: string
+          paymentTermsDays: int
+          updatedBy: Guid
+          updatedAt: DateTimeOffset
+      - v: Supplier details
+    tests:
+      supplier can be edited at the expected version:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: active, version: 3 }
+        when:
+          - c: UpdateSupplier
+            props: { supplierId: acmeId, expectedVersion: 3, name: Acme Aktiebolag, paymentTermsDays: 45 }
+        then:
+          - e: Supplier / SupplierUpdated
+            props: { supplierId: acmeId, name: Acme Aktiebolag, paymentTermsDays: 45, updatedBy: erikId }
+      concurrent edit is rejected:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: active, version: 4 }
+        when:
+          - c: UpdateSupplier
+            props: { supplierId: acmeId, expectedVersion: 3, name: Acme Aktiebolag }
+        then:
+          - x: ConcurrentEdit
+      cannot edit unknown supplier:
+        given: []
+        when:
+          - c: UpdateSupplier
+            props: { supplierId: unknown, expectedVersion: 0, name: Nobody }
+        then:
+          - x: SupplierNotFound
+
+  # Soft-delete. A supplier with open (unpaid, unvoided) invoices cannot be deactivated; the
+  # open count is resolved via the SupplierContext dependency (Supplier list's openInvoiceCount).
+  ✍️ Deactivate Supplier:
+    steps:
+      - t: 🛠️ Admin /Supplier details
+      - c: DeactivateSupplier
+        props:
+          supplierId: Guid
+          expectedVersion: int
+          reason: string
+      - x: SupplierNotFound
+      - x: ConcurrentEdit
+      - x: SupplierAlreadyInactive
+      - x: SupplierHasOpenInvoices
+      - e: Supplier / SupplierDeactivated
+        props:
+          supplierId: Guid
+          reason: string
+          deactivatedBy: Guid
+          deactivatedAt: DateTimeOffset
+      - v: Supplier details
+    tests:
+      supplier without open invoices can be deactivated:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: active, version: 5, openInvoiceCount: 0 }
+        when:
+          - c: DeactivateSupplier
+            props: { supplierId: acmeId, expectedVersion: 5, reason: Contract ended }
+        then:
+          - e: Supplier / SupplierDeactivated
+            props: { supplierId: acmeId, reason: Contract ended, deactivatedBy: erikId }
+      cannot deactivate supplier with open invoices:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: active, version: 5, openInvoiceCount: 2 }
+        when:
+          - c: DeactivateSupplier
+            props: { supplierId: acmeId, expectedVersion: 5, reason: Contract ended }
+        then:
+          - x: SupplierHasOpenInvoices
+      cannot deactivate twice:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: inactive, version: 6 }
+        when:
+          - c: DeactivateSupplier
+            props: { supplierId: acmeId, expectedVersion: 6, reason: again }
+        then:
+          - x: SupplierAlreadyInactive
+
+  ✍️ Reactivate Supplier:
+    steps:
+      - t: 🛠️ Admin /Supplier details
+      - c: ReactivateSupplier
+        props:
+          supplierId: Guid
+          expectedVersion: int
+      - x: SupplierNotFound
+      - x: ConcurrentEdit
+      - x: SupplierAlreadyActive
+      - e: Supplier / SupplierReactivated
+        props:
+          supplierId: Guid
+          reactivatedBy: Guid
+          reactivatedAt: DateTimeOffset
+      - v: Supplier details
+    tests:
+      inactive supplier can be reactivated:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: inactive, version: 6 }
+        when:
+          - c: ReactivateSupplier
+            props: { supplierId: acmeId, expectedVersion: 6 }
+        then:
+          - e: Supplier / SupplierReactivated
+            props: { supplierId: acmeId, reactivatedBy: erikId }
+
+  👀 Supplier Details:
+    steps:
+      - v: Supplier details
+        props:
+          supplierId: Guid
+          supplierNumber: string
+          name: string
+          vatNumber: string
+          bankAccount: string
+          paymentTermsDays: int
+          status: SupplierStatus (active|inactive)
+          version: int
+          openInvoices: InvoiceRow[]    # this supplier's unpaid, unvoided invoices { invoiceId, invoiceNumber, amount, phase, dueDate }
+    tests:
+      details fold create and update:
+        given:
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001, name: Acme AB, paymentTermsDays: 30 }
+          - e: Supplier / SupplierUpdated
+            props: { supplierId: acmeId, name: Acme Aktiebolag, paymentTermsDays: 45 }
+        then:
+          - v: Supplier details
+            props: { supplierNumber: S-1001, name: Acme Aktiebolag, paymentTermsDays: 45, status: active, version: 2 }
+
+  # --- Invoice registration (Clerk) ------------------------------------------
+
+  # Draft = a saved-but-unsubmitted invoice. Nothing is validated beyond the supplier being
+  # active; totals are computed by the read model from lines. Draft is the "save and continue"
+  # state: the clerk may leave and come back.
+  ✍️ Draft Invoice:
+    steps:
+      - t: 🧾 Clerk /Invoice list
+      - c: DraftInvoice
+        props:
+          supplierId: Guid
+          invoiceNumber: string         # the supplier's own number
+          invoiceDate: DateOnly
+          dueDate: DateOnly
+          currency: string
+          lines: InvoiceLine[]          # { description: string, quantity: decimal, unitPrice: decimal, vatRate: decimal }
+          costCenter: string
+          attachmentIds: Guid[]
+      - x: SupplierNotFound
+      - x: SupplierInactive
+      - e: Invoice / InvoiceDrafted
+        props:
+          invoiceId: Guid
+          supplierId: Guid
+          invoiceNumber: string
+          invoiceDate: DateOnly
+          dueDate: DateOnly
+          currency: string
+          lines: InvoiceLine[]
+          costCenter: string
+          attachmentIds: Guid[]
+          createdBy: Guid
+          createdAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      draft can be saved for an active supplier:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: active }
+        when:
+          - c: DraftInvoice
+            props: { supplierId: acmeId, invoiceNumber: A-2026-0042, invoiceDate: 2026-09-01, dueDate: 2026-10-01, currency: SEK, lines: [line1], costCenter: CC-100 }
+        then:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: minted, supplierId: acmeId, invoiceNumber: A-2026-0042, currency: SEK, lines: [line1], createdBy: annaId }
+      cannot draft against an inactive supplier:
+        given:
+          - v: State / Supplier
+            props: { supplierId: acmeId, status: inactive }
+        when:
+          - c: DraftInvoice
+            props: { supplierId: acmeId, invoiceNumber: A-2026-0043 }
+        then:
+          - x: SupplierInactive
+
+  ✍️ Edit Draft:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: EditDraft
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          invoiceNumber: string
+          invoiceDate: DateOnly
+          dueDate: DateOnly
+          currency: string
+          lines: InvoiceLine[]
+          costCenter: string
+          attachmentIds: Guid[]
+      - x: InvoiceNotFound
+      - x: InvoiceNotDraft
+      - x: ConcurrentEdit
+      - e: Invoice / DraftEdited
+        props:
+          invoiceId: Guid
+          invoiceNumber: string
+          invoiceDate: DateOnly
+          dueDate: DateOnly
+          currency: string
+          lines: InvoiceLine[]
+          costCenter: string
+          attachmentIds: Guid[]
+          editedBy: Guid
+          editedAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      draft can be edited:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 1 }
+        when:
+          - c: EditDraft
+            props: { invoiceId: inv1, expectedVersion: 1, costCenter: CC-200 }
+        then:
+          - e: Invoice / DraftEdited
+            props: { invoiceId: inv1, costCenter: CC-200, editedBy: annaId }
+      cannot edit a submitted invoice as a draft:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 2 }
+        when:
+          - c: EditDraft
+            props: { invoiceId: inv1, expectedVersion: 2, costCenter: CC-200 }
+        then:
+          - x: InvoiceNotDraft
+      concurrent draft edit is rejected:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 2 }
+        when:
+          - c: EditDraft
+            props: { invoiceId: inv1, expectedVersion: 1, costCenter: CC-200 }
+        then:
+          - x: ConcurrentEdit
+
+  # Irreversible: a discarded draft is gone from every list (the stream stays, event-sourced).
+  ✍️ Discard Draft:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: DiscardDraft
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+      - x: InvoiceNotFound
+      - x: InvoiceNotDraft
+      - x: ConcurrentEdit
+      - e: Invoice / DraftDiscarded
+        props:
+          invoiceId: Guid
+          discardedBy: Guid
+          discardedAt: DateTimeOffset
+      - v: Invoice list
+    tests:
+      draft can be discarded:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 1 }
+        when:
+          - c: DiscardDraft
+            props: { invoiceId: inv1, expectedVersion: 1 }
+        then:
+          - e: Invoice / DraftDiscarded
+            props: { invoiceId: inv1, discardedBy: annaId }
+      cannot discard a submitted invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 2 }
+        when:
+          - c: DiscardDraft
+            props: { invoiceId: inv1, expectedVersion: 2 }
+        then:
+          - x: InvoiceNotDraft
+
+  # Submission is where completeness is enforced (draft is lenient by design).
+  ✍️ Submit Invoice:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: SubmitInvoice
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+      - x: InvoiceNotFound
+      - x: InvoiceNotDraft
+      - x: ConcurrentEdit
+      - x: InvoiceIncomplete            # no lines, missing due date, non-positive total
+      - x: SupplierInactive
+      - e: Invoice / InvoiceSubmitted
+        props:
+          invoiceId: Guid
+          totalAmount: decimal
+          submittedBy: Guid
+          submittedAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      complete draft can be submitted:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 2, lines: [line1], dueDate: 2026-10-01, supplierStatus: active }
+        when:
+          - c: SubmitInvoice
+            props: { invoiceId: inv1, expectedVersion: 2 }
+        then:
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500, submittedBy: annaId }
+      cannot submit an incomplete draft:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 1, lines: [], supplierStatus: active }
+        when:
+          - c: SubmitInvoice
+            props: { invoiceId: inv1, expectedVersion: 1 }
+        then:
+          - x: InvoiceIncomplete
+      cannot submit if supplier went inactive meanwhile:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 2, lines: [line1], supplierStatus: inactive }
+        when:
+          - c: SubmitInvoice
+            props: { invoiceId: inv1, expectedVersion: 2 }
+        then:
+          - x: SupplierInactive
+
+  # Correction: the clerk takes a submitted invoice back to draft before anyone decides on it.
+  ✍️ Withdraw Submission:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: WithdrawSubmission
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+      - x: InvoiceNotFound
+      - x: InvoiceNotSubmitted
+      - x: ConcurrentEdit
+      - e: Invoice / SubmissionWithdrawn
+        props:
+          invoiceId: Guid
+          withdrawnBy: Guid
+          withdrawnAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      submitted invoice can be withdrawn back to draft:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3 }
+        when:
+          - c: WithdrawSubmission
+            props: { invoiceId: inv1, expectedVersion: 3 }
+        then:
+          - e: Invoice / SubmissionWithdrawn
+            props: { invoiceId: inv1, withdrawnBy: annaId }
+      cannot withdraw an approved invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4 }
+        when:
+          - c: WithdrawSubmission
+            props: { invoiceId: inv1, expectedVersion: 4 }
+        then:
+          - x: InvoiceNotSubmitted
+
+  # Correction: a rejected invoice is reopened as a draft, keeping the rejection in its history.
+  ✍️ Reopen Rejected Invoice:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: ReopenInvoice
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+      - x: InvoiceNotFound
+      - x: InvoiceNotRejected
+      - x: ConcurrentEdit
+      - e: Invoice / InvoiceReopened
+        props:
+          invoiceId: Guid
+          reopenedBy: Guid
+          reopenedAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      rejected invoice can be reopened as draft:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: rejected, version: 4 }
+        when:
+          - c: ReopenInvoice
+            props: { invoiceId: inv1, expectedVersion: 4 }
+        then:
+          - e: Invoice / InvoiceReopened
+            props: { invoiceId: inv1, reopenedBy: annaId }
+
+  # --- Approval (Approver) ---------------------------------------------------
+
+  # Per-viewer guards: the approver may not approve an invoice she created (segregation of
+  # duties) and may not exceed her approval limit (ApproverContext dependency).
+  ✍️ Approve Invoice:
+    steps:
+      - t: ✅ Approver /Approval queue
+      - c: ApproveInvoice
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          comment: string               # OPTIONAL on approve
+      - x: InvoiceNotFound
+      - x: InvoiceNotSubmitted
+      - x: ConcurrentEdit
+      - x: CannotApproveOwnInvoice
+      - x: ExceedsApprovalLimit
+      - e: Invoice / InvoiceApproved
+        props:
+          invoiceId: Guid
+          approvedBy: Guid
+          comment: string
+          approvedAt: DateTimeOffset
+      - v: Approval queue
+    tests:
+      submitted invoice within limit can be approved:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3, totalAmount: 12500, createdBy: annaId }
+        when:
+          - c: ApproveInvoice
+            props: { invoiceId: inv1, expectedVersion: 3 }
+        then:
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+      cannot approve own invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3, totalAmount: 12500, createdBy: boId }
+        when:
+          - c: ApproveInvoice
+            props: { invoiceId: inv1, expectedVersion: 3 }
+        then:
+          - x: CannotApproveOwnInvoice
+      cannot approve above own limit:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3, totalAmount: 120000, createdBy: annaId }
+        when:
+          - c: ApproveInvoice
+            props: { invoiceId: inv1, expectedVersion: 3 }   # boId, limit 50000
+        then:
+          - x: ExceedsApprovalLimit
+      cannot approve a draft:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 1, createdBy: annaId }
+        when:
+          - c: ApproveInvoice
+            props: { invoiceId: inv1, expectedVersion: 1 }
+        then:
+          - x: InvoiceNotSubmitted
+
+  # Rejection requires a reason (mandatory) — the clerk needs it to correct and resubmit.
+  ✍️ Reject Invoice:
+    steps:
+      - t: ✅ Approver /Approval queue
+      - c: RejectInvoice
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          reason: string                # MANDATORY
+      - x: InvoiceNotFound
+      - x: InvoiceNotSubmitted
+      - x: ConcurrentEdit
+      - x: CannotApproveOwnInvoice
+      - x: ReasonRequired
+      - e: Invoice / InvoiceRejected
+        props:
+          invoiceId: Guid
+          rejectedBy: Guid
+          reason: string
+          rejectedAt: DateTimeOffset
+      - v: Approval queue
+    tests:
+      submitted invoice can be rejected with a reason:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3, createdBy: annaId }
+        when:
+          - c: RejectInvoice
+            props: { invoiceId: inv1, expectedVersion: 3, reason: Wrong cost center }
+        then:
+          - e: Invoice / InvoiceRejected
+            props: { invoiceId: inv1, rejectedBy: boId, reason: Wrong cost center }
+      cannot reject without a reason:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3, createdBy: annaId }
+        when:
+          - c: RejectInvoice
+            props: { invoiceId: inv1, expectedVersion: 3, reason: "" }
+        then:
+          - x: ReasonRequired
+
+  # Bulk approve: one command over a selection; the decider evaluates each invoice with the
+  # same guards as ApproveInvoice and emits a per-invoice outcome, then a summary event.
+  # ASSUMPTION: the bulk command is a process over many Invoice streams; the summary lives on a
+  # BulkApproval stream so the queue can show "12 approved, 2 skipped (own invoice / over limit)".
+  ✍️ Bulk Approve:
+    steps:
+      - t: ✅ Approver /Approval queue
+      - c: ApproveInvoices
+        props:
+          invoiceIds: Guid[]
+          comment: string
+      - x: NothingSelected
+      - e: Invoice / InvoiceApproved     # one per eligible invoice
+      - e: BulkApproval / BulkApprovalCompleted
+        props:
+          bulkApprovalId: Guid
+          approvedIds: Guid[]
+          skippedIds: Guid[]           # with per-id reason in skipped: SkippedInvoice[] { invoiceId, reason: SkipReason (ownInvoice|overLimit|notSubmitted|concurrentEdit) }
+          skipped: SkippedInvoice[]
+          approvedBy: Guid
+          completedAt: DateTimeOffset
+      - v: Approval queue
+    tests:
+      eligible invoices are approved and ineligible ones skipped with reasons:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3, totalAmount: 12500, createdBy: annaId }
+          - v: State / Invoice
+            props: { invoiceId: inv2, phase: submitted, version: 2, totalAmount: 900000, createdBy: annaId }
+          - v: State / Invoice
+            props: { invoiceId: inv3, phase: submitted, version: 1, totalAmount: 100, createdBy: boId }
+        when:
+          - c: ApproveInvoices
+            props: { invoiceIds: [inv1, inv2, inv3] }   # boId
+        then:
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+          - e: BulkApproval / BulkApprovalCompleted
+            props: { approvedIds: [inv1], skippedIds: [inv2, inv3], skipped: [skipInv2OverLimit, skipInv3Own], approvedBy: boId }
+      empty selection is rejected:
+        given: []
+        when:
+          - c: ApproveInvoices
+            props: { invoiceIds: [] }
+        then:
+          - x: NothingSelected
+
+  👀 Approval Queue:
+    steps:
+      - v: Approval queue
+        props:
+          approverId: Guid
+          pending: ApprovalRow[]        # submitted invoices not created by the viewer, within limit { invoiceId, invoiceNumber, supplierName, totalAmount, currency, dueDate, submittedAt, submittedBy, waitingDays }
+          blocked: ApprovalRow[]        # submitted invoices this viewer cannot approve (own / over limit) — visible, not actionable
+          lastBulkResult: BulkResult?   # { approvedCount, skipped: SkippedInvoice[] } from the latest BulkApprovalCompleted by this approver
+    tests:
+      queue splits pending from blocked for the viewing approver:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv3, supplierId: acmeId, createdBy: boId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv3, totalAmount: 100 }
+        then:
+          - v: Approval queue
+            props:
+              approverId: boId
+              pending: [rowInv1]
+              blocked: [rowInv3Own]
+
+  # --- Dispute / hold (Controller) ------------------------------------------
+
+  # A hold freezes an invoice in submitted|approved while a dispute with the supplier is
+  # investigated. Releasing returns it to the phase it was held from (heldFromPhase in State).
+  ✍️ Place On Hold:
+    steps:
+      - t: 🔍 Controller /Invoice details
+      - c: HoldInvoice
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          reason: string                # MANDATORY
+      - x: InvoiceNotFound
+      - x: InvoiceNotHoldable           # only submitted|approved can be held
+      - x: ConcurrentEdit
+      - x: ReasonRequired
+      - e: Invoice / InvoiceHeld
+        props:
+          invoiceId: Guid
+          heldFromPhase: InvoicePhase
+          reason: string
+          heldBy: Guid
+          heldAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      approved invoice can be put on hold:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4 }
+        when:
+          - c: HoldInvoice
+            props: { invoiceId: inv1, expectedVersion: 4, reason: Supplier disputes quantity }
+        then:
+          - e: Invoice / InvoiceHeld
+            props: { invoiceId: inv1, heldFromPhase: approved, reason: Supplier disputes quantity, heldBy: dinaId }
+      cannot hold a paid invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: paid, version: 7 }
+        when:
+          - c: HoldInvoice
+            props: { invoiceId: inv1, expectedVersion: 7, reason: too late }
+        then:
+          - x: InvoiceNotHoldable
+      cannot hold without a reason:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4 }
+        when:
+          - c: HoldInvoice
+            props: { invoiceId: inv1, expectedVersion: 4, reason: "" }
+        then:
+          - x: ReasonRequired
+
+  ✍️ Release Hold:
+    steps:
+      - t: 🔍 Controller /Invoice details
+      - c: ReleaseHold
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          resolution: string
+      - x: InvoiceNotFound
+      - x: InvoiceNotOnHold
+      - x: ConcurrentEdit
+      - e: Invoice / HoldReleased
+        props:
+          invoiceId: Guid
+          returnedToPhase: InvoicePhase
+          resolution: string
+          releasedBy: Guid
+          releasedAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      released invoice returns to the phase it was held from:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: onHold, heldFromPhase: approved, version: 5 }
+        when:
+          - c: ReleaseHold
+            props: { invoiceId: inv1, expectedVersion: 5, resolution: Credit note received }
+        then:
+          - e: Invoice / HoldReleased
+            props: { invoiceId: inv1, returnedToPhase: approved, resolution: Credit note received, releasedBy: dinaId }
+      cannot release an invoice that is not on hold:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4 }
+        when:
+          - c: ReleaseHold
+            props: { invoiceId: inv1, expectedVersion: 4, resolution: n/a }
+        then:
+          - x: InvoiceNotOnHold
+
+  # --- Payment (Clerk + ⚙️ System) ------------------------------------------
+
+  ✍️ Schedule Payment:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: SchedulePayment
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          paymentDate: DateOnly
+          bankAccountId: Guid           # OUR paying account
+      - x: InvoiceNotFound
+      - x: InvoiceNotApproved
+      - x: ConcurrentEdit
+      - x: PaymentDateInPast
+      - e: Invoice / PaymentScheduled
+        props:
+          invoiceId: Guid
+          paymentDate: DateOnly
+          bankAccountId: Guid
+          scheduledBy: Guid
+          scheduledAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      approved invoice can be scheduled:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4 }
+        when:
+          - c: SchedulePayment
+            props: { invoiceId: inv1, expectedVersion: 4, paymentDate: 2026-09-30, bankAccountId: mainAccount }
+        then:
+          - e: Invoice / PaymentScheduled
+            props: { invoiceId: inv1, paymentDate: 2026-09-30, bankAccountId: mainAccount, scheduledBy: annaId }
+      cannot schedule a submitted invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3 }
+        when:
+          - c: SchedulePayment
+            props: { invoiceId: inv1, expectedVersion: 3, paymentDate: 2026-09-30, bankAccountId: mainAccount }
+        then:
+          - x: InvoiceNotApproved
+      cannot schedule in the past:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4 }
+        when:
+          - c: SchedulePayment
+            props: { invoiceId: inv1, expectedVersion: 4, paymentDate: 2020-01-01, bankAccountId: mainAccount }
+        then:
+          - x: PaymentDateInPast
+
+  # Processor read-model: scheduled invoices whose paymentDate <= today, grouped per account.
+  📋 Due Payments:
+    steps:
+      - v: Todo / Due payments
+        props:
+          asOf: DateOnly
+          due: DuePayment[]             # { invoiceId: Guid, bankAccountId: Guid, amount: decimal, currency: string, paymentDate: DateOnly }
+          hasDue: bool
+    tests:
+      a scheduled invoice becomes due on its payment date:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+          - e: Invoice / PaymentScheduled
+            props: { invoiceId: inv1, paymentDate: 2026-09-30, bankAccountId: mainAccount }
+        then:
+          - v: Todo / Due payments
+            props: { asOf: 2026-09-30, due: [dueInv1], hasDue: true }
+
+  # Automation: the nightly payment run pays every due invoice from its account and marks each
+  # invoice paid. One PaymentRunExecuted on the Payment stream, one InvoicePaid per invoice.
+  ✍️ Execute Payment Run:
+    steps:
+      - e: Invoice / PaymentScheduled
+      - v: Todo / Due payments
+      - t: ⚙️ System / Payment run
+      - c: ExecutePaymentRun
+        props:
+          runDate: DateOnly
+      - x: NoPaymentsDue
+      - e: Payment / PaymentRunExecuted
+        props:
+          paymentRunId: Guid
+          runDate: DateOnly
+          payments: ExecutedPayment[]  # { invoiceId, bankAccountId, amount, currency, bankReference: string }
+          totalAmount: decimal
+          executedAt: DateTimeOffset
+      - e: Invoice / InvoicePaid         # one per invoice
+        props:
+          invoiceId: Guid
+          paymentRunId: Guid
+          bankReference: string
+          paidAt: DateTimeOffset
+      - v: Payment run log
+    tests:
+      due invoices are paid by the run:
+        given:
+          - v: Todo / Due payments
+            props: { asOf: 2026-09-30, due: [dueInv1], hasDue: true }
+        when:
+          - c: ExecutePaymentRun
+            props: { runDate: 2026-09-30 }
+        then:
+          - e: Payment / PaymentRunExecuted
+            props: { paymentRunId: minted, runDate: 2026-09-30, payments: [paidInv1], totalAmount: 12500 }
+          - e: Invoice / InvoicePaid
+            props: { invoiceId: inv1, paymentRunId: minted, bankReference: ref1 }
+      nothing due means no run:
+        given:
+          - v: Todo / Due payments
+            props: { asOf: 2026-09-30, due: [], hasDue: false }
+        when:
+          - c: ExecutePaymentRun
+            props: { runDate: 2026-09-30 }
+        then:
+          - x: NoPaymentsDue
+
+  👀 Payment Run Log:
+    steps:
+      - v: Payment run log
+        props:
+          runs: PaymentRunRow[]         # { paymentRunId, runDate, paymentCount: int, totalAmount: decimal, executedAt }
+          fromDate: DateOnly
+          toDate: DateOnly
+    tests:
+      log lists executed runs:
+        given:
+          - e: Payment / PaymentRunExecuted
+            props: { paymentRunId: run1, runDate: 2026-09-30, payments: [paidInv1], totalAmount: 12500 }
+        then:
+          - v: Payment run log
+            props: { runs: [runRow1] }
+
+  # Correction: a payment bounced or was made in error. The invoice returns to approved so the
+  # clerk can reschedule; the money movement is recorded on the Payment stream.
+  ✍️ Reverse Payment:
+    steps:
+      - t: 🧾 Clerk /Invoice details
+      - c: ReversePayment
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          reason: string                # MANDATORY
+      - x: InvoiceNotFound
+      - x: InvoiceNotPaid
+      - x: ConcurrentEdit
+      - x: ReasonRequired
+      - e: Payment / PaymentReversed
+        props:
+          invoiceId: Guid
+          paymentRunId: Guid
+          amount: decimal
+          reason: string
+          reversedBy: Guid
+          reversedAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      paid invoice can be reversed back to approved:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: paid, version: 7, paymentRunId: run1, totalAmount: 12500 }
+        when:
+          - c: ReversePayment
+            props: { invoiceId: inv1, expectedVersion: 7, reason: Bank rejected IBAN }
+        then:
+          - e: Payment / PaymentReversed
+            props: { invoiceId: inv1, paymentRunId: run1, amount: 12500, reason: Bank rejected IBAN, reversedBy: annaId }
+      cannot reverse an unpaid invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: scheduled, version: 5 }
+        when:
+          - c: ReversePayment
+            props: { invoiceId: inv1, expectedVersion: 5, reason: n/a }
+        then:
+          - x: InvoiceNotPaid
+
+  # Irreversible with compensation: voiding an approved/scheduled invoice reverses the booked
+  # liability (Ledger / LiabilityReversed) — the invoice is never deleted, and there is no
+  # un-void; a corrected invoice must be drafted anew.
+  ✍️ Void Invoice:
+    steps:
+      - t: ✅ Approver /Invoice details
+      - c: VoidInvoice
+        props:
+          invoiceId: Guid
+          expectedVersion: int
+          reason: string                # MANDATORY
+      - x: InvoiceNotFound
+      - x: InvoiceNotVoidable           # only approved|scheduled
+      - x: ConcurrentEdit
+      - x: ReasonRequired
+      - e: Invoice / InvoiceVoided
+        props:
+          invoiceId: Guid
+          reason: string
+          voidedBy: Guid
+          voidedAt: DateTimeOffset
+      - e: Ledger / LiabilityReversed
+        props:
+          invoiceId: Guid
+          amount: decimal
+          currency: string
+          reversedAt: DateTimeOffset
+      - v: Invoice details
+    tests:
+      approved invoice can be voided with compensating reversal:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: approved, version: 4, totalAmount: 12500, currency: SEK }
+        when:
+          - c: VoidInvoice
+            props: { invoiceId: inv1, expectedVersion: 4, reason: Duplicate of A-2026-0041 }
+        then:
+          - e: Invoice / InvoiceVoided
+            props: { invoiceId: inv1, reason: Duplicate of A-2026-0041, voidedBy: boId }
+          - e: Ledger / LiabilityReversed
+            props: { invoiceId: inv1, amount: 12500, currency: SEK }
+      cannot void a paid invoice:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: paid, version: 7 }
+        when:
+          - c: VoidInvoice
+            props: { invoiceId: inv1, expectedVersion: 7, reason: too late }
+        then:
+          - x: InvoiceNotVoidable
+      cannot void a draft:
+        given:
+          - v: State / Invoice
+            props: { invoiceId: inv1, phase: draft, version: 1 }
+        when:
+          - c: VoidInvoice
+            props: { invoiceId: inv1, expectedVersion: 1, reason: n/a }
+        then:
+          - x: InvoiceNotVoidable
+
+  # --- Approval reminders (⚙️ System, long-running) --------------------------
+
+  📋 Stale Approvals:
+    steps:
+      - v: Todo / Stale approvals
+        props:
+          asOf: DateOnly
+          stale: StaleApproval[]        # submitted > 5 working days, not on hold { invoiceId, submittedAt, waitingDays, lastRemindedAt: DateTimeOffset? }
+          hasStale: bool
+    tests:
+      an invoice waiting more than five working days is stale:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500, submittedAt: 2026-09-01T09:00:00Z }
+        then:
+          - v: Todo / Stale approvals
+            props: { asOf: 2026-09-10, stale: [staleInv1], hasStale: true }
+
+  ✍️ Remind Approvers:
+    steps:
+      - e: Invoice / InvoiceSubmitted
+      - v: Todo / Stale approvals
+      - t: ⚙️ System / Approval reminder
+      - c: RemindApprovers
+        props:
+          asOf: DateOnly
+      - x: NothingStale
+      - e: Invoice / ApprovalReminderSent
+        props:
+          invoiceId: Guid
+          remindedAt: DateTimeOffset
+      - v: Approval queue
+    tests:
+      stale invoices get a reminder:
+        given:
+          - v: Todo / Stale approvals
+            props: { asOf: 2026-09-10, stale: [staleInv1], hasStale: true }
+        when:
+          - c: RemindApprovers
+            props: { asOf: 2026-09-10 }
+        then:
+          - e: Invoice / ApprovalReminderSent
+            props: { invoiceId: inv1 }
+
+  # --- Screens (state views) -------------------------------------------------
+
+  👀 Invoice List:
+    steps:
+      - v: Invoice list
+        props:
+          rows: InvoiceRow[]            # { invoiceId, invoiceNumber, supplierName, totalAmount, currency, dueDate, phase, createdBy, updatedAt }
+          phaseFilter: InvoicePhase[]   # multi-select; empty = all
+          supplierFilter: Guid?
+          dueBefore: DateOnly?
+          query: string
+          totalCount: int
+    tests:
+      list shows every non-discarded invoice with its current phase:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, invoiceNumber: A-2026-0042, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv2, supplierId: acmeId, invoiceNumber: A-2026-0043, createdBy: annaId }
+          - e: Invoice / DraftDiscarded
+            props: { invoiceId: inv2 }
+        then:
+          - v: Invoice list
+            props:
+              rows: [rowInv1Submitted]
+              totalCount: 1
+
+  👀 Invoice Details:
+    steps:
+      - v: Invoice details
+        props:
+          invoiceId: Guid
+          invoiceNumber: string
+          supplierId: Guid
+          supplierName: string
+          invoiceDate: DateOnly
+          dueDate: DateOnly
+          currency: string
+          lines: InvoiceLine[]
+          netAmount: decimal
+          vatAmount: decimal
+          totalAmount: decimal
+          costCenter: string
+          attachmentIds: Guid[]
+          phase: InvoicePhase
+          holdReason: string?
+          rejectionReason: string?
+          voidReason: string?
+          paymentDate: DateOnly?
+          bankReference: string?
+          createdBy: Guid
+          version: int
+    tests:
+      details fold the document and its current phase:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, invoiceNumber: A-2026-0042, currency: SEK, lines: [line1], createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceRejected
+            props: { invoiceId: inv1, rejectedBy: boId, reason: Wrong cost center }
+        then:
+          - v: Invoice details
+            props: { invoiceNumber: A-2026-0042, netAmount: 10000, vatAmount: 2500, totalAmount: 12500, phase: rejected, rejectionReason: Wrong cost center, version: 3 }
+
+  👀 Outstanding Invoices:
+    steps:
+      - v: Outstanding invoices
+        props:
+          viewerId: Guid
+          myDrafts: InvoiceRow[]
+          myRejected: InvoiceRow[]      # need action: reopen or discard
+          awaitingApproval: InvoiceRow[]
+          approvedUnscheduled: InvoiceRow[]
+          overdue: InvoiceRow[]         # dueDate < today, not paid/voided
+          onHold: InvoiceRow[]
+          counts: OutstandingCounts     # { drafts, rejected, awaitingApproval, approvedUnscheduled, overdue, onHold }
+    tests:
+      outstanding buckets an approved-but-unscheduled invoice:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+        then:
+          - v: Outstanding invoices
+            props:
+              viewerId: annaId
+              approvedUnscheduled: [rowInv1Approved]
+
+  👀 Cash Position:
+    steps:
+      - v: Cash position
+        props:
+          asOf: DateOnly
+          scheduledOutflow: OutflowBucket[]   # per week { weekStart: DateOnly, amount: decimal, currency: string, invoiceCount: int }
+          approvedUnscheduledTotal: decimal
+          paidLast30Days: decimal
+          onHoldTotal: decimal
+          byAccount: AccountOutflow[]         # { bankAccountId, scheduledAmount }
+    tests:
+      cash position sums scheduled outflow by week:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+          - e: Invoice / PaymentScheduled
+            props: { invoiceId: inv1, paymentDate: 2026-09-30, bankAccountId: mainAccount }
+        then:
+          - v: Cash position
+            props: { scheduledOutflow: [weekOf0928_12500], approvedUnscheduledTotal: 0 }
+
+  # Every event on an invoice, in order, with who and when — the auditor's view.
+  👀 Audit Trail:
+    steps:
+      - v: Audit trail
+        props:
+          invoiceId: Guid
+          entries: AuditEntry[]         # { at: DateTimeOffset, actor: Guid, eventType: string, summary: string, reason: string? }
+    tests:
+      audit trail lists every change with actor and reason:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, submittedBy: annaId }
+          - e: Invoice / InvoiceRejected
+            props: { invoiceId: inv1, rejectedBy: boId, reason: Wrong cost center }
+        then:
+          - v: Audit trail
+            props:
+              entries: [auditDrafted, auditSubmitted, auditRejectedWrongCC]
+
+  # --- Decision models (decider State) — APPENDIX, not timeline steps -------
+
+  👀 Supplier Decision Model:
+    steps:
+      - v: State / Supplier
+        props:
+          supplierId: Guid
+          supplierNumber: string
+          status: SupplierStatus (active|inactive)   # NOT named phase: keeps the xmlang phase namespace to State / Invoice
+          version: int
+          openInvoiceCount: int         # via SupplierContext dependency, used by DeactivateSupplier
+    tests:
+      supplier state folds deactivation:
+        given:
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001 }
+          - e: Supplier / SupplierDeactivated
+            props: { supplierId: acmeId }
+        then:
+          - v: State / Supplier
+            props: { status: inactive, version: 2 }
+
+  👀 Invoice Decision Model:
+    steps:
+      - v: State / Invoice
+        props:
+          invoiceId: Guid
+          phase: InvoicePhase (draft|submitted|onHold|approved|rejected|scheduled|paid|voided|discarded)
+          heldFromPhase: InvoicePhase?  # set while onHold
+          supplierId: Guid
+          supplierStatus: SupplierStatus   # via SupplierContext dependency, read by SubmitInvoice
+          createdBy: Guid               # read by CannotApproveOwnInvoice
+          totalAmount: decimal          # read by ExceedsApprovalLimit
+          currency: string
+          lines: InvoiceLine[]
+          dueDate: DateOnly
+          paymentRunId: Guid?
+          version: int                  # read by every ConcurrentEdit guard
+    tests:
+      state folds the approval and payment path:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId, lines: [line1] }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+          - e: Invoice / PaymentScheduled
+            props: { invoiceId: inv1, paymentDate: 2026-09-30 }
+          - e: Invoice / InvoicePaid
+            props: { invoiceId: inv1, paymentRunId: run1 }
+        then:
+          - v: State / Invoice
+            props: { phase: paid, paymentRunId: run1, version: 5 }
+      hold remembers where it came from:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceHeld
+            props: { invoiceId: inv1, heldFromPhase: submitted, reason: Dispute }
+        then:
+          - v: State / Invoice
+            props: { phase: onHold, heldFromPhase: submitted, version: 3 }
+      release restores the held-from phase:
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceHeld
+            props: { invoiceId: inv1, heldFromPhase: submitted, reason: Dispute }
+          - e: Invoice / HoldReleased
+            props: { invoiceId: inv1, returnedToPhase: submitted }
+        then:
+          - v: State / Invoice
+            props: { phase: submitted, heldFromPhase: null, version: 4 }

@@ -162,4 +162,4 @@ A first-line YAML comment `# emlang: version=1.1.0 profile=decider` would fork n
 - Red team: `rfcs/emlang-evidence/redteam.md` R1, R2, R3, R7, R22 (applied), and "The single strongest objection" (recorded above).
 - Local parser, formatter and CLI: `src/emlang/Emlang/Linting/EmAst.cs`, `src/emlang/Emlang/Linting/EmFormatter.cs`, `src/emlang/Emlang/EmParser.cs`, `src/emlang/Emlang/Linting/Linter.cs`, `src/emlang/Emlang.Cli/Program.cs`.
 - Design pass and plan: `rfcs/emlang-evidence/cut-lines.md` (sections A, C, D), `rfcs/emlang-evidence/PLAN.md` (Decisions, Final cut).
-- The debt this pays: xmlang `rfcs/0001-interaction-model.md`, "Open objections" item 3.
+- The debt this pays: xmlang `rfcs/xmlang-0001-interaction-model.md`, "Open objections" item 3.

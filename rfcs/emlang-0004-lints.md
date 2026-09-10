@@ -21,7 +21,7 @@ consumed by: xmlang RFC 0001, debts 3, 6, 7 and 8
 
 The reference linter has three rules, all warnings, hardcoded at one severity (`Linter.cs:14-18`, `:92`; Go `linter.go`), and the upstream README documents ten rules of which the code implements three (`compat.md` §4). The rule list is therefore already non-normative and already ahead of the code; an appendix that names rules beyond the reference implementation has precedent in the reference repository itself.
 
-xmlang's derived interaction stratum (RFC 0001 §4) rests on four facts emlang does not state: which command succeeds in which phase (RFC 0001 L184 keeps `xm-command-phase-mismatch` at info "until emlang has a scenario-coverage lint"), who acted (the selection default L135 and `self:`, XSPEC L145-151, must resolve against one prop), whether a view carries the datum a heading shows (RFC 0001 L121), and which view props are inputs rather than data (`SYNTHESIS.md:68`). These are debts 3, 6, 7 and 8 (`0001-interaction-model.md:238, 241-243`); the design pass ruled all four lints or props conventions, not constructs (`cut-lines.md` §A E4, E6, §D).
+xmlang's derived interaction stratum (RFC 0001 §4) rests on four facts emlang does not state: which command succeeds in which phase (RFC 0001 L184 keeps `xm-command-phase-mismatch` at info "until emlang has a scenario-coverage lint"), who acted (the selection default L135 and `self:`, XSPEC L145-151, must resolve against one prop), whether a view carries the datum a heading shows (RFC 0001 L121), and which view props are inputs rather than data (`SYNTHESIS.md:68`). These are debts 3, 6, 7 and 8 (`xmlang-0001-interaction-model.md:238, 241-243`); the design pass ruled all four lints or props conventions, not constructs (`cut-lines.md` §A E4, E6, §D).
 
 ## Proposed appendix text
 
@@ -172,20 +172,20 @@ Projection arguments today, manual, all on lob-ap: `approverId` `:713`, `asOf` `
 
 ### Index of all rules
 
-Counts are fires today per model in the order lob-ap / blindbudet / mer-eller-mindre / tank-till-tusen. Reference counts are from `em lint` 0.3.0 on 2026-09-09; RFC emlang-0002 rows copy its own table (`emlang-0002-decider-profile.md:255-261`), whose columns are profile first, default second; its `em-given-todo` fires are cited here at the element lines `:933, :945, :1110` (its §4), not the test-name lines its table uses (`redteam.md` R23).
+Counts are fires today per model in the order lob-ap / blindbudet / mer-eller-mindre / tank-till-tusen. Reference counts are from `em lint` 0.3.0 on 2026-09-09; RFC emlang-0002 rows copy its own table (`emlang-0002-decider-profile.md:430-439`), whose columns are profile first, default second; its `em-given-todo` fires are cited here at the element lines `:933, :945, :1110` (its §4), not the test-name lines its table uses (`redteam.md` R23).
 
 | rule | source | default | `profile: decider` | fires today | consumer |
 |---|---|---|---|---|---|
 | `command-without-event` | reference (`Linter.cs:53-56`) | warning | warning | 0 / 0 / 0 / 0 | shape of a slice |
 | `orphan-exception` | reference (`:59-62`) | warning | warning | 0 / 0 / 0 / 0 | shape of a slice |
 | `slice-missing-event` | reference (`:65-67`) | warning | warning | 13 / 9 / 11 / 9, one per `👀` or `📋` slice | exempt command-less slices (recommendation above, with RFC 0002) |
-| `em-given-events-in-decision` | RFC 0002 | off | error | 0 / 0 / 0 / 0 | generator emits given state, never a fold, for decision tests |
-| `em-given-mixed` | RFC 0002 | warning | error | 0 / 0 / 0 / 0 | same |
-| `em-given-multi-state` | RFC 0002 | off | error | 1 (`lob-ap:685`) / 0 / 0 / 0 | closes the uncompilable branch of `TestsEmitter.EmitGiven` |
+| `em-given-not-one-state` | RFC 0002 | off | error | 8 (`lob-ap:685` three states; `:931`, `:943`, `:1108` Todo only; 4 empty givens) / 5 / 7 / 6 (the 22 empty givens) | generator emits the given state, never a fold; replaces `em-given-events-in-decision`, `em-given-mixed`, `em-given-multi-state` |
+| `em-fold-shape` | RFC 0002 | off | error | 0 / 0 / 0 / 0 | a fold has events and no `when` |
+| `em-then-outside-query` | RFC 0002 | off | error | 10 / 3 / 3 / 3 | the append condition covers every emitted type; replaces the aggregate rule `em-given-decider-mismatch` |
+| `em-fold-untagged-event` | RFC 0002 | off | error | 0 / 0 / 0 / 0 | query tags are the state's identity props |
 | `em-state-without-fold` | RFC 0002 | off | error | 0 / 0 / 0 / 0 | xmlang `during` trusts the fold |
+| `em-state-phase-without-fold` | RFC 0002 | off | error | 17 / 4 / 5 / 4 | every pinned phase value is produced by a fold |
 | `em-given-todo` | RFC 0002 | off | warning | 3 (`lob-ap:933, 945, 1110`) / 0 / 0 / 0 | coverage matrix above reads the transition |
-| `em-phase-ambiguous` | RFC 0002 | warning | error | 0 / 0 / 0 / 0 (lob-ap avoided it, `:1267`) | xmlang `xm-ambiguous-phase`, `during` map form |
-| `em-state-name-slash` | RFC 0002 | off | error | 0 / 0 / 0 / 0 | one swimlane split for state names |
 | `em-trigger-origin-unresolved` | RFC 0003 B | warning | per RFC 0002 | 2 / 7 / 9 / 6 | xmlang destination and entry defaults become references; withdrawn under the red team's alternative (`xm-origin-mismatch` in xmlang instead) |
 | `em-trigger-after-command` | RFC 0003 A | warning | warning | 0 / 0 / 0 / 0 | trigger set attaches to the right command |
 | `em-phase-transition-uncovered` | this RFC | warning | warning | 94 / 14 / 17 / 14 | `xm-command-phase-mismatch` to warning |
@@ -237,4 +237,4 @@ None required; every rule reads documents that are valid today and no document b
 
 ## Evidence
 
-`rfcs/emlang-evidence/{PLAN,cut-lines,census-gwt-state,compat,redteam}.md` (redteam R12, R18-R23); `rfcs/emlang-0002-decider-profile.md` L255-261; `rfcs/0001-interaction-model.md` L102, L121, L132-139, L172-185, L232-243; `rfcs/0001-evidence/p1-derivability.md` §2 rows 4, 6, 7, §3, §4a; `rfcs/0001-evidence/SYNTHESIS.md` L35, L43, L66-73; `xmlang-spec.md` L111-119, L145-151; upstream `SPEC.md` L81-86, `schema.json` L222-225; the four models at the lines cited; `src/emlang/Emlang/EmParser.cs:8, 46-48, 145-159`, `SpecModel.cs:101-105, 115-128`, `Linting/Linter.cs:3-8, 14-18, 22, 27-29, 53-67, 87-93`; `em lint` 0.3.0 output on the four models, 2026-09-09; the census scripts `census.py` and `census2.py` in the session scratchpad.
+`rfcs/emlang-evidence/{PLAN,cut-lines,census-gwt-state,compat,redteam}.md` (redteam R12, R18-R23); `rfcs/emlang-0002-decider-profile.md` L255-261; `rfcs/xmlang-0001-interaction-model.md` L102, L121, L132-139, L172-185, L232-243; `rfcs/0001-evidence/p1-derivability.md` §2 rows 4, 6, 7, §3, §4a; `rfcs/0001-evidence/SYNTHESIS.md` L35, L43, L66-73; `xmlang-spec.md` L111-119, L145-151; upstream `SPEC.md` L81-86, `schema.json` L222-225; the four models at the lines cited; `src/emlang/Emlang/EmParser.cs:8, 46-48, 145-159`, `SpecModel.cs:101-105, 115-128`, `Linting/Linter.cs:3-8, 14-18, 22, 27-29, 53-67, 87-93`; `em lint` 0.3.0 output on the four models, 2026-09-09; the census scripts `census.py` and `census2.py` in the session scratchpad.

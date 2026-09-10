@@ -2,7 +2,7 @@
 
 ## Context
 
-xmlang RFC 0001 (`rfcs/0001-interaction-model.md`) names eight debts that belong in emlang and records three open objections, the third of which is that xmlang's derived Defaults rest on conventions the emlang spec does not state. The user is separately planning an emlang change of their own: a 1:1 map between the Event Model and the decider, so that the linter prohibits `given: [e…]` for state-change GWT, allows only state (possibly a new `s:` element instead of `v: State /`), and requires every such state to be preceded by its fold test. These are the same concern from two sides. Since xmlang depends one-way on emlang, now is the time to draft the emlang RFCs, one per concern, as review artifacts. Nothing is pushed or applied.
+xmlang RFC 0001 (`rfcs/xmlang-0001-interaction-model.md`) names eight debts that belong in emlang and records three open objections, the third of which is that xmlang's derived Defaults rest on conventions the emlang spec does not state. The user is separately planning an emlang change of their own: a 1:1 map between the Event Model and the decider, so that the linter prohibits `given: [e…]` for state-change GWT, allows only state (possibly a new `s:` element instead of `v: State /`), and requires every such state to be preceded by its fold test. These are the same concern from two sides. Since xmlang depends one-way on emlang, now is the time to draft the emlang RFCs, one per concern, as review artifacts. Nothing is pushed or applied.
 
 Established facts (from this session's exploration; see `rfcs/0001-evidence/` for the inquiry):
 
@@ -35,7 +35,7 @@ I write the compatibility posture README myself and review every RFC against the
 - Spec: `https://raw.githubusercontent.com/emlang-project/spec/main/SPEC.md`, `schema.json`
 - Local: `src/emlang/Emlang/{EmParser,SpecModel,TestModel}.cs`, `Linting/{EmAst,Linter}.cs`, `EmFormatter.cs`; `src/emlang/Emlang.Generators/{TestsEmitter,DeciderEmitter,SurfaceEmitter,EmitTarget}.cs`
 - Fixtures: `tests/Emlang.Tests/fixtures/*.em.yaml`; `rfcs/0001-evidence/lob-ap.em.yaml`
-- Inquiry: `rfcs/0001-interaction-model.md`, `rfcs/0001-evidence/{SYNTHESIS,p1-derivability,p3-redteam,p3-impact}.md`
+- Inquiry: `rfcs/xmlang-0001-interaction-model.md`, `rfcs/0001-evidence/{SYNTHESIS,p1-derivability,p3-redteam,p3-impact}.md`
 
 ## Verification
 
@@ -78,3 +78,13 @@ Uncontested fixes (R2-R9, R11-R14, R18-R23) are being folded into the drafts. Re
 2. **Form B (R10).** Red team verdict: withdraw. `s:` cannot live in a profile (a profile cannot add a kind), so B is a base-spec change; EM's canvas has no state box. Both forms remain drafted per the 2026-09-09 decision.
 3. **RFC 0003 section B (R15, R16).** Red team agrees with the coordinator: origin is an experience fact; keep free text in emlang, add `xm-origin-mismatch` in xmlang, withdraw bare forms. Section A (trigger sets) stays. Cut or keep?
 4. **Host-trigger fixture fix (R17).** Evidence is three game UIs (the negative control). Apply, or wait for an LOB dual initiator?
+
+## Decisions (2026-09-10, Martin): all-in on decider + DCB
+
+- **Consistency model: DCB** (Dynamic Consistency Boundary). A state element is a decision model; its fold tests define its query (event types = union of fold givens; tags = identity-typed props). Append condition replaces per-stream version. The aggregate rule (`em-given-decider-mismatch`, then-events share the given state's swimlane) is the rejected alternative; swimlanes are canvas grouping only.
+- **Given is always exactly one explicit state.** No `given: []` anywhere. Empty state = props absent, needs no fold. "Initial state" is not a concept; a rich starting state (tenant after onboarding) is a fold like any other. Three shape lints collapse into `em-given-not-one-state`.
+- **Closed decision model:** then-events must be in the given state's query (`em-then-outside-query`). Tags: fold events carry a state identity prop (`em-fold-untagged-event`). `em-phase-ambiguous` deleted.
+- **Domain focus: B2B SaaS.** Examples are B2B SaaS only (DraftInvoice against supplier status, seat limits, workspace slugs, approval thresholds, tenant onboarding). Games appear only as census rows.
+- **RFC 0005 initiators:** rename `t:` trigger to actor / automation (base spec 1.1.0). Practitioner objection from Martin Dilger on record, quote pending. Martin to ask Dilger for his reasoning and for an outside model (answers redteam R24).
+- **Second testbed:** a ChronosHub flow is intended; this repo is public, so either anonymise into a generic publishing-SaaS model or cite counts only. Martin's call.
+- Still open from 2026-09-09: (1) root key vs `.emlang.yaml`; (2) form B; (3) RFC 0003 section B; (4) host-trigger fixture fix.

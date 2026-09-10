@@ -20,7 +20,7 @@ consumed by: xmlang RFC 0001, debts 1 and 2
 
 The emlang spec keeps a screen name in exactly one place: the trigger. `t: Customer/RegistrationForm` (SPEC L76) is the vestige of Event Modeling's wireframe row, and the spec attaches no meaning to the text after the slash. The local models follow a convention, "triggers carry the actor role + originating screen" (`blindbudet.em.yaml:7-8`, `lob-ap.em.yaml:6`), and the local parser discards the origin: `EmParser.CollectRole` keeps only the role (`EmParser.cs:116-121`). So the one fact that would make navigation topology a reference instead of a heuristic is written down and then thrown away (`p1-derivability.md` lead finding 4).
 
-Two defects follow. On the games the origin text matches no view: `t: 🧑‍🎓 Player /Lot` (`blindbudet.em.yaml:343`) against `v: Lot card` (`:305`). And the games model Next and End as `⚙️ System` processors (`blindbudet.em.yaml:778`, `:815`) while all three shipped UIs give the host a button (`p1-derivability.md` §4a); xmlang's enablement default would hide those buttons until the Event Model carries a host trigger beside the System one (RFC 0001 L148). RFC 0001 names both as emlang debts 1 and 2 (`0001-interaction-model.md:236-237`).
+Two defects follow. On the games the origin text matches no view: `t: 🧑‍🎓 Player /Lot` (`blindbudet.em.yaml:343`) against `v: Lot card` (`:305`). And the games model Next and End as `⚙️ System` processors (`blindbudet.em.yaml:778`, `:815`) while all three shipped UIs give the host a button (`p1-derivability.md` §4a); xmlang's enablement default would hide those buttons until the Event Model carries a host trigger beside the System one (RFC 0001 L148). RFC 0001 names both as emlang debts 1 and 2 (`xmlang-0001-interaction-model.md:236-237`).
 
 ## What the spec says today, verbatim
 
@@ -194,7 +194,7 @@ Section B as drafted: 24 origin renames, listed above (lob-ap 2; blindbudet 7; m
 ## Implementation notes (reference implementation)
 
 - Prerequisite: the swimlane split diverges locally. `EmAst.cs:327` and Go `ast.go:84-92` split at the first `/`; `EmParser.Split` (`EmParser.cs:35-41`), `SpecModel.cs:83, 89` and `TestModel.cs:93` split at the last; they agree only while no name contains a second `/` (`compat.md` §3). Section B fixes the rule at the first `/` and forbids a second; the three last-slash sites must be aligned before the lint ships, or `em lint` and `xm` read different origins.
-- `EmParser.CollectRole` (`EmParser.cs:116-121`) discards the origin; `EmSpec` needs the origin per trigger and the trigger set per slice, which is the slice-chain projection RFC 0001 already requires (`0001-interaction-model.md:228`), one `EmSpecShape` re-approval.
+- `EmParser.CollectRole` (`EmParser.cs:116-121`) discards the origin; `EmSpec` needs the origin per trigger and the trigger set per slice, which is the slice-chain projection RFC 0001 already requires (`xmlang-0001-interaction-model.md:228`), one `EmSpecShape` re-approval.
 - `Linter.cs` is a per-slice pass (`:27-29`); `em-trigger-origin-unresolved` also needs the document's view-name index. `LintSeverity` has `Warning` and `Error` only (`:3`). `Linter.cs:14-18` declares the set a faithful port of the Go reference; either rule is a divergence to negotiate, with the upstream README's ten listed rules against three implemented as precedent (`compat.md` §4).
 - `EmFormatter` needs no change.
 
@@ -217,4 +217,4 @@ Section B as drafted: 24 origin renames, listed above (lob-ap 2; blindbudet 7; m
 
 ## Evidence
 
-`rfcs/emlang-evidence/{PLAN,cut-lines,census-gwt-state,compat,redteam}.md` (redteam R15-R17, R22, R23); `rfcs/0001-interaction-model.md` L126-148, L232-249; `rfcs/0001-evidence/p1-derivability.md` lead finding 4, §2 rows 2-3 and 12, §4a; `rfcs/0001-evidence/SYNTHESIS.md` L35, L43, L66-67; upstream `SPEC.md` L19, L54-57, L72-78, L97 and `schema.json` L110-116, L216-221; the four models at the lines cited; `src/emlang/Emlang/EmParser.cs:35-41, 104-121`, `Linting/EmAst.cs:327-332`, `Linting/Linter.cs:3, 14-18, 27-29`.
+`rfcs/emlang-evidence/{PLAN,cut-lines,census-gwt-state,compat,redteam}.md` (redteam R15-R17, R22, R23); `rfcs/xmlang-0001-interaction-model.md` L126-148, L232-249; `rfcs/0001-evidence/p1-derivability.md` lead finding 4, §2 rows 2-3 and 12, §4a; `rfcs/0001-evidence/SYNTHESIS.md` L35, L43, L66-67; upstream `SPEC.md` L19, L54-57, L72-78, L97 and `schema.json` L110-116, L216-221; the four models at the lines cited; `src/emlang/Emlang/EmParser.cs:35-41, 104-121`, `Linting/EmAst.cs:327-332`, `Linting/Linter.cs:3, 14-18, 27-29`.

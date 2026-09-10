@@ -2,167 +2,212 @@
 title: "emlang RFC 0002: The decider profile (draft for spec 1.1.0, profile decider)"
 status: draft
 created: 2026-09-09
-targets: "emlang spec 1.1.0 via RFC 0001 (`profile: decider`); consumer xmlang 0.6.0 (`during` per decider)"
-depends: emlang RFC 0001 (profiles); required by emlang RFC 0004 (lints)
+revised: 2026-09-10
+targets: "emlang spec 1.1.0 via RFC 0001 (profile decider); consumer xmlang 0.6.0 (during per decision model)"
+depends: "emlang RFC 0001 (profiles); required by emlang RFC 0004 (lints)"
 ---
 # emlang RFC 0002: The decider profile
 
-**Status: draft.** Nothing here is applied to the upstream spec or to `src/emlang`. This RFC defines `profile: decider`, the maintainer's 1:1 map between an Event Model and its deciders. It pays xmlang RFC 0001 debt 4 (phase per decider), answers xmlang RFC 0001 open objection 3 for the State-lane convention, and assigns the profile severity of the actor-identity rule whose text is in emlang RFC 0004. Dependency graph: RFC 0001 is required here; RFC 0004 requires this RFC; RFC 0003 section A stands alone. The state element is drafted in two forms, A and B, with identical rules under both; the maintainer picks on reading.
+**Status: draft.** Nothing here is applied to the upstream spec or to `src/emlang`. This RFC defines `profile: decider`: the maintainer's 1:1 map between an Event Model and its deciders, with Dynamic Consistency Boundaries (DCB, Pellegrini and Waidelich) as the consistency model. It pays xmlang RFC 0001 debt 4 (phase per decision model), answers xmlang RFC 0001 open objection 3 for the State-lane convention, and assigns the profile severity of the actor-identity rule whose text is in emlang RFC 0004. Dependency graph: RFC 0001 is required here; RFC 0004 requires this RFC; RFC 0003 section A stands alone. A pending RFC 0005 (`rfcs/emlang-0005-initiators.md`) renames `t:` to actor and automation; this RFC references it in one line and does not depend on it. The state element is drafted in two forms, A and B, with identical rules under both; the maintainer picks on reading.
 
-Throughout, "document" means one YAML document (the unit between `---` separators), as in RFC 0001 and in "Document Structure" ("Each document MUST independently conform"). Every rule scoped to a document is scoped to that unit, never to the file.
+Throughout, "document" means one YAML document (the unit between `---` separators), as in RFC 0001 and in "Document Structure" ("Each document MUST independently conform"). Every rule scoped to a document is scoped to that unit, never to the file. "Automation" is used for what the fixtures call `⚙️ System`; that text is quoted only when citing fixture lines.
 
 ## Summary
 
 Under `profile: decider`:
 
-1. A state element exists, either as the reserved swimlane `State` on a view (form A) or as a sixth element kind `s:` (form B). Its name is the decider's name.
-2. A test with `when` gives nothing, or exactly one state, optionally accompanied by the non-state views a processor reads; the state and the `then` events name one decider. A test without `when` gives events only.
-3. Every state in any `given`, and every phase value pinned there, is produced by the `then` of an events-only test in the same document (by reference, not document order).
-4. A Todo view in a decision test's `given` should be accompanied by the decider state the command validates against.
-5. Each state may carry `phase: <Enum> (a|b|c)`; phases are namespaced by decider; a bare value shared by two deciders is a warning.
+1. A state element is a decision model. Its fold tests define it by example: the model's query is the union of event types in every fold test whose `then` is that state, its tags are the state's identity-typed props, and its append condition is that query at the position the decision was made. Nothing is declared beyond the tests.
+2. A decision test's `given` is exactly one explicit state element, always. The empty state is the state element with props absent and means the query matched no events; every non-empty state, at phase-value level, is produced by a fold test in the same document.
+3. The decision model is closed: every event type in a decision test's `then` appears in some fold test of the given state. Every event in a fold test carries at least one of the state's identity props.
+4. Swimlanes are canvas grouping only; the aggregate rule (`then` events share the given state's swimlane) is the rejected alternative.
+5. Phase is per decision model. A Todo view in an automation's decision test should be accompanied by the decision model the command validates against.
 6. Fold tests and Decision Model slices are exempt from upstream's `test-missing-command` and `slice-missing-event`; without that exemption the profile is unadoptable upstream.
 
-Nine lint rules. No schema change under form A; six schema edits under form B.
+Eight lint rules. No schema change under form A; six schema edits under form B.
 
 ## Motivation
 
-The maintainer's stated aim: "a 1:1 map to the decider in my dialect of emlang, ie the linter prohibiting event[] as given for gwt, only state (perhaps s: rather than v: ?), and every such state preceding gwt's".
+The maintainer's stated aim: "a 1:1 map to the decider in my dialect of emlang, ie the linter prohibiting event[] as given for gwt, only state (perhaps s: rather than v: ?), and every such state preceding gwt's". On 2026-09-10 the maintainer fixed the consistency model as DCB (`rfcs/emlang-evidence/PLAN.md`, Decisions 2026-09-10): a decision model is defined by a query over event types and tags, and an append condition replaces the per-stream version.
 
-emlang v1.0.0 says nothing about state. "Test Structure" allows `given` to hold "`e` (event), `v` (view)" and the spec's own `EmailMustBeUnique` example (section "Extended Form", lines 137-147) gives an event and then issues a command. Event Modeling's worked specification does the same: "Given: We have registered, and added a payment method" is a list of prior facts, not a folded state. A decider-only `given` is therefore a departure from the method's GWT as written, not a restatement of it. The reason for the departure: a decider reads its folded state, not an event list, so an events-given decision test exercises the fold and the decision at once and pins neither; splitting them gives each fold one test that pins the state and each decision one test that pins the events, and lets a generator arrange a decision test from state without replaying history.
+The reason comes from the domain. B2B SaaS invariants are cross-entity by nature. A seat limit reads the Subscription's plan and the Members added; a unique workspace slug reads every workspace created in the tenant; an approval threshold reads the Approver's role and limit and the Invoice's amount; drafting an invoice reads whether its Supplier is active. Each of these is one decision, made over events tagged with two or three identities, and none belongs to a single entity's stream. Under a stream-per-entity model each needs either a process manager, a denormalised copy of the foreign fact on the entity, or an eventual-consistency apology. Under DCB each is one decision model: a query over the event types and tags it reads, folded into a state, with the append condition guaranteeing no matching event was appended since the state was read. The Event Model already draws it that way: the fold test says which events the decision reads, and the decision test says what it emits.
 
-Four local models already write that split, without spec support. Every one carries a header comment saying so: "emlang has no `state` element, so every command/processor slice expresses its Given as the View State / Game" (`tests/Emlang.Tests/fixtures/blindbudet.em.yaml:23-24`; the same at `mer-eller-mindre.em.yaml:24-27`, `tank-till-tusen.em.yaml:21-24`, `rfcs/0001-evidence/lob-ap.em.yaml:11`). The census of their 185 tests (`rfcs/emlang-evidence/census-gwt-state.md`, re-counted for this RFC and independently by the red team, `redteam.md` R23):
+The running example is drafting an invoice against an active supplier. The current lob-ap model gives `v: State / Supplier` and emits `e: Invoice / InvoiceDrafted` (`rfcs/0001-evidence/lob-ap.em.yaml:322-331`), reading one entity and writing another. Under the profile the decision has its own model, `State / InvoiceDrafting`, folded from `Supplier / SupplierCreated`, `Supplier / SupplierDeactivated`, `Supplier / SupplierReactivated` and `Invoice / InvoiceDrafted` (lob-ap's names; the plan's "SupplierActivated" is `SupplierCreated` and `SupplierReactivated` there), tagged by `supplierId`. Section 1 writes it out.
+
+emlang v1.0.0 says nothing about state. "Test Structure" allows `given` to hold "`e` (event), `v` (view)" and the spec's own `EmailMustBeUnique` example (section "Extended Form", lines 137-147) gives an event and then issues a command. Event Modeling's worked specification does the same: "Given: We have registered, and added a payment method" is a list of prior facts, not a folded state. A state-only `given` is therefore a departure from the method's GWT as written, not a restatement of it. The reason for the departure: a decider reads its folded state, so an events-given decision test exercises the fold and the decision at once and pins neither; splitting them gives each fold one test that pins the state and each decision one test that pins the events. Under DCB the split carries a second load: the fold tests are the only place the decision model's query is written down.
+
+Four local models already write the split, without spec support (`tests/Emlang.Tests/fixtures/blindbudet.em.yaml:23-24`; `mer-eller-mindre.em.yaml:24-27`; `tank-till-tusen.em.yaml:21-24`; `lob-ap.em.yaml:11`). The census of their 185 tests (`rfcs/emlang-evidence/census-gwt-state.md`, re-counted for this RFC and independently by the red team, `redteam.md` R23); the games are the negative control and appear here as rows only:
 
 | `given` shape | blindbudet | mer-eller-mindre | tank-till-tusen | lob-ap | total |
 |---|---|---|---|---|---|
-| events only | 12 | 15 | 12 | 15 | 54 |
+| events only (fold or projection test) | 12 | 15 | 12 | 15 | 54 |
 | exactly one `v: State / X` | 20 | 24 | 22 | 39 | 105 |
 | several `v: State / X` | 0 | 0 | 0 | 1 | 1 |
-| `v: Todo / X` | 0 | 0 | 0 | 3 | 3 |
+| `v: Todo / X` only | 0 | 0 | 0 | 3 | 3 |
 | empty | 5 | 7 | 6 | 4 | 22 |
 | mixed kinds | 0 | 0 | 0 | 0 | 0 |
 | tests | 37 | 46 | 40 | 62 | 185 |
 
-The census file reports 106 State givens; that figure includes the one three-state given at `lob-ap.em.yaml:685-692`. Every one of the 54 events-only givens belongs to a test without `when`; every test with `when` gives state, nothing, or (three times) a Todo view. Every State view that appears in a `given` has a name-level fold test in the same document (`blindbudet.em.yaml:946`, `:962`; `mer-eller-mindre.em.yaml:1291` ff.; `tank-till-tusen.em.yaml:1009` ff.; `lob-ap.em.yaml:1271`, `:1298`, `:1313`, `:1324`). The profile restates this practice where it holds and, in sections 2 and 3, states where it does not: three cross-decider decisions and 30 pinned phase values no fold test produces.
+Every one of the 54 events-only givens belongs to a test without `when`; every test with `when` gives state, nothing, or (three times) a Todo view. The profile restates this practice where it holds and states, in sections 2 and 3, where it does not: 22 empty givens that must name their state, 19 decision tests emitting event types no fold reads, and 30 pinned phase values no fold produces.
 
-Two costs of leaving it unstated. First, the generator: `TestsEmitter.EmitGiven` (`src/emlang/Emlang/TestsEmitter.cs:112-133`) uses state only when `given` is exactly one State view (`:114`); anything else falls to the fold arm (`:125-132`) and, for the three-state given at `lob-ap.em.yaml:687-692` and the Todo givens at `:933`, `:945`, `:1110`, emits `new Invoice(...)` and `new Due payments(...)` inside an event-array initializer, which does not compile and raises no `SpecTestException`. Second, xmlang: its `during` resolves against a `State`-lane view's `phase` enum (`EmParser.cs:145-151`) and unions every decider's values, so the LOB model had to name the supplier lifecycle `status` to stay out of the namespace (`lob-ap.em.yaml:21-25`, `:1267`). xmlang RFC 0001 records both as emlang debts (items 4 and 7) and as objection 3.
+Two costs of leaving it unstated. First, the generator: `TestsEmitter.EmitGiven` (`src/emlang/Emlang/TestsEmitter.cs:112-133`) uses state only when `given` is exactly one State view (`:114`); anything else falls to the fold arm (`:125-132`) and, for the three-state given at `lob-ap.em.yaml:687-692` and the Todo givens at `:933`, `:945`, `:1110`, emits `new Invoice(...)` and `new Due payments(...)` inside an event-array initializer, which does not compile and raises no `SpecTestException`. Second, xmlang: its `during` resolves against a `State`-lane view's `phase` enum (`EmParser.cs:145-151`) and unions every decision model's values, so the LOB model had to name the supplier lifecycle `status` to stay out of the namespace (`lob-ap.em.yaml:21-25`, `:1267`). xmlang RFC 0001 records both as emlang debts (items 4 and 7) and as objection 3.
 
 ## Proposed normative changes
 
 All rules below apply only to documents that declare `emlang: { version: "1.1.0", profile: decider }` (RFC 0001), or, if the maintainer takes RFC 0001's recorded alternative, to documents linted with `lint.profile: decider`. Outside the profile the lint rules run at the severity given in section 8, or not at all.
 
-### 1. The state element
+### 1. The state element is a decision model
 
 The rules that follow are identical under both forms; only the element's spelling differs.
 
-- A state element names one decider; the text after the swimlane (form A) or the element name (form B) is the decider's name
+- A state element names one decision model; the text after the swimlane (form A) or the element name (form B) is the model's name
 - A state element MAY appear in `steps`, `given` and `then`
-- A state element's `props` document the decider's folded state; a state element in a test carries only the props that test reads or pins
-- Two state elements with the same decider name in one document denote the same decider
+- A state element's `props` document the model's folded state; a state element in a test carries only the props that test reads or pins
+- A state element's identity props are its props whose declared name ends in `Id` or `Ids`; they are the model's tags
+- A fold test is a test without `when` whose `given` holds at least one event and whose `then` is exactly one state element; a fold test with an empty `given`, a non-event in `given`, or more than one element in `then` MUST be reported as an error (`em-fold-shape`)
+- A decision model's query is defined by example: its event types are the union of the event types in the `given` of every fold test in the document whose `then` is that state, and its tags are the state's identity props
+- A decision model's append condition is its query, evaluated at the position at which the decision's state was read; a decision's events MUST NOT be appended if any event matching the query was appended after that position
+- Nothing about the query is declared outside the fold tests
+- Two state elements with the same model name in one document denote the same model
 
-State `props` are documentation until a generator emits the state record. Today no generator does: `SurfaceEmitter` emits records for `c`/`e`/`x` only ("'v' elements are inert for record emission", `SpecModel.cs:19-20`), and the state type is a naming convention, `Prefix + "State"` (`EmitTarget.cs:14`), single-valued per spec and hand-written. The profile therefore makes multi-decider documents legal to lint and to consume from xmlang; generating code for a multi-decider document is out of scope for this RFC.
+State `props` are documentation until a generator emits the state record. Today no generator does: `SurfaceEmitter` emits records for `c`/`e`/`x` only ("'v' elements are inert for record emission", `SpecModel.cs:19-20`), and the state type is a naming convention, `Prefix + "State"` (`EmitTarget.cs:14`), single-valued per spec and hand-written. The profile makes documents with several decision models legal to lint and to consume from xmlang; generating code for more than one decision model per document is out of scope for this RFC.
 
-**Form A: `v: State / <Decider>` promoted to normative text.** The swimlane `State` is reserved under the profile: a view whose swimlane, after the parser's whitespace trimming, is exactly `State` is a state element. The name is defined after normalization because both formatters rewrite `State / Invoice` to `State/Invoice` (`ast.go:84-92` with `parser.go:374-375`; `EmAst.cs:330-331` with `EmFormatter.cs:82`), so `State / X` and `State/X` are the same element. Zero schema change. Add to "Swimlanes", under the profile: "The swimlane `State` is reserved; a view in it denotes a decider's folded state."
+Names are free. `State / Invoice` stays legal, and a model named after an entity is a habit, not a rule: the profile does not care whether a model's query reads one swimlane or three. A cross-entity model takes a name for the decision, such as `State / InvoiceDrafting` or `State / ApprovalBatch`. Under the profile a swimlane is canvas grouping and nothing else; it names no stream, no consistency boundary and no owner.
+
+**Form A: `v: State / <Model>` promoted to normative text.** The swimlane `State` is reserved under the profile: a view whose swimlane, after the parser's whitespace trimming, is exactly `State` is a state element. The name is defined after normalization because both formatters rewrite `State / Invoice` to `State/Invoice` (`ast.go:84-92` with `parser.go:374-375`; `EmAst.cs:330-331` with `EmFormatter.cs:82`), so `State / X` and `State/X` are the same element. Zero schema change. Add to "Swimlanes", under the profile: "The swimlane `State` is reserved; a view in it denotes a decision model."
 
 ```yaml
-# proposed (form A)
+# proposed (form A): the running example
 emlang: { version: "1.1.0", profile: decider }
 slices:
-  ✍️ Submit Invoice:
+  ✍️ Draft Invoice:
     steps:
-      - t: 🧾 Clerk /Invoice details
-      - c: SubmitInvoice
-        props: { invoiceId: Guid, expectedVersion: int }
-      - x: ConcurrentEdit
-      - e: Invoice / InvoiceSubmitted
-        props: { invoiceId: Guid, submittedBy: Guid }
+      - t: 🧾 Clerk /Invoice list
+      - c: DraftInvoice
+        props: { supplierId: Guid, invoiceNumber: string, lines: InvoiceLine[] }
+      - x: SupplierInactive
+      - e: Invoice / InvoiceDrafted
+        props: { invoiceId: Guid, supplierId: Guid, invoiceNumber: string, lines: InvoiceLine[], createdBy: Guid }
       - v: Invoice details
     tests:
-      draft can be submitted:
+      draft can be saved for an active supplier:
         given:
-          - v: State / Invoice
-            props: { invoiceId: inv1, phase: draft, version: 1 }
+          - v: State / InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: true, phase: open }
         when:
-          - c: SubmitInvoice
-            props: { invoiceId: inv1, expectedVersion: 1 }
+          - c: DraftInvoice
+            props: { supplierId: acmeId, invoiceNumber: A-2026-0042, lines: [line1] }
         then:
-          - e: Invoice / InvoiceSubmitted
-            props: { invoiceId: inv1 }
-  👀 Invoice Decision Model:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: minted, supplierId: acmeId, invoiceNumber: A-2026-0042, createdBy: annaId }
+      cannot draft against an inactive supplier:
+        given:
+          - v: State / InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: false, phase: blocked }
+        when:
+          - c: DraftInvoice
+            props: { supplierId: acmeId, invoiceNumber: A-2026-0043 }
+        then:
+          - x: SupplierInactive
+      cannot draft against an unknown supplier:
+        given:
+          - v: State / InvoiceDrafting          # empty state: the query matched no events for this supplierId
+        when:
+          - c: DraftInvoice
+            props: { supplierId: unknownId, invoiceNumber: A-2026-0044 }
+        then:
+          - x: SupplierNotFound
+  👀 Invoice Drafting Decision Model:
     steps:
-      - v: State / Invoice
+      - v: State / InvoiceDrafting
         props:
-          invoiceId: Guid
-          phase: InvoicePhase (draft|submitted|approved|paid|voided)
-          version: int
+          supplierId: Guid                         # tag
+          supplierActive: bool
+          phase: DraftingPhase (open|blocked)
+          draftedInvoiceIds: Guid[]                # tag
     tests:
-      state folds a draft:
+      an active supplier is open for drafting:
         given:
-          - e: Invoice / InvoiceDrafted
-            props: { invoiceId: inv1 }
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001 }
         then:
-          - v: State / Invoice
-            props: { phase: draft, version: 1 }
-      state folds a submission:
+          - v: State / InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: true, phase: open }
+      a deactivated supplier blocks drafting:
         given:
-          - e: Invoice / InvoiceDrafted
-            props: { invoiceId: inv1 }
-          - e: Invoice / InvoiceSubmitted
-            props: { invoiceId: inv1 }
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001 }
+          - e: Supplier / SupplierDeactivated
+            props: { supplierId: acmeId }
         then:
-          - v: State / Invoice
-            props: { phase: submitted, version: 2 }
+          - v: State / InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: false, phase: blocked }
+      reactivation reopens drafting and remembers the drafts:
+        given:
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001 }
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId }
+          - e: Supplier / SupplierDeactivated
+            props: { supplierId: acmeId }
+          - e: Supplier / SupplierReactivated
+            props: { supplierId: acmeId }
+        then:
+          - v: State / InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: true, phase: open, draftedInvoiceIds: [inv1] }
 ```
 
-**Form B: `s:` as a sixth element kind.** Add a row to the "Elements" table: State, short `s:`, acronym `st:`, long `state:`. Amend "Emlang defines 5 element types" to 6. Amend "Test Structure": `given` allows `e`, `v`, `s`; `then` allows `e`, `v`, `x`, `s`. The name is the decider's name; a swimlane is permitted but carries no meaning.
+Read off the fold tests: the `InvoiceDrafting` query is the event types `SupplierCreated`, `SupplierDeactivated`, `SupplierReactivated`, `InvoiceDrafted`, tagged `supplierId` (and `invoiceId` through `draftedInvoiceIds`). The append condition for `DraftInvoice` is that query at the position the state was read: if the supplier is deactivated between read and append, the append fails and the decision is retried. The rejection case that section 2 of the previous draft could not express (a supplier's status is a "context dependency", `lob-ap.em.yaml:1289`, `:37-38`) is now an ordinary fold.
+
+**Form B: `s:` as a sixth element kind.** Add a row to the "Elements" table: State, short `s:`, acronym `st:`, long `state:`. Amend "Emlang defines 5 element types" to 6. Amend "Test Structure": `given` allows `e`, `v`, `s`; `then` allows `e`, `v`, `x`, `s`. The name is the model's name; a swimlane is permitted but carries no meaning.
 
 ```yaml
-# proposed (form B)
+# proposed (form B): the same running example, decision test and one fold
 emlang: { version: "1.1.0", profile: decider }
 slices:
-  ✍️ Submit Invoice:
+  ✍️ Draft Invoice:
     steps:
-      - t: 🧾 Clerk /Invoice details
-      - c: SubmitInvoice
-        props: { invoiceId: Guid, expectedVersion: int }
-      - x: ConcurrentEdit
-      - e: Invoice / InvoiceSubmitted
-        props: { invoiceId: Guid, submittedBy: Guid }
+      - t: 🧾 Clerk /Invoice list
+      - c: DraftInvoice
+        props: { supplierId: Guid, invoiceNumber: string, lines: InvoiceLine[] }
+      - x: SupplierInactive
+      - e: Invoice / InvoiceDrafted
+        props: { invoiceId: Guid, supplierId: Guid, invoiceNumber: string, lines: InvoiceLine[], createdBy: Guid }
       - v: Invoice details
     tests:
-      draft can be submitted:
+      draft can be saved for an active supplier:
         given:
-          - s: Invoice
-            props: { invoiceId: inv1, phase: draft, version: 1 }
+          - s: InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: true, phase: open }
         when:
-          - c: SubmitInvoice
-            props: { invoiceId: inv1, expectedVersion: 1 }
+          - c: DraftInvoice
+            props: { supplierId: acmeId, invoiceNumber: A-2026-0042, lines: [line1] }
         then:
-          - e: Invoice / InvoiceSubmitted
-            props: { invoiceId: inv1 }
-  👀 Invoice Decision Model:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: minted, supplierId: acmeId, invoiceNumber: A-2026-0042, createdBy: annaId }
+      cannot draft against an unknown supplier:
+        given:
+          - s: InvoiceDrafting                    # empty state
+        when:
+          - c: DraftInvoice
+            props: { supplierId: unknownId, invoiceNumber: A-2026-0044 }
+        then:
+          - x: SupplierNotFound
+  👀 Invoice Drafting Decision Model:
     steps:
-      - s: Invoice
+      - s: InvoiceDrafting
         props:
-          invoiceId: Guid
-          phase: InvoicePhase (draft|submitted|approved|paid|voided)
-          version: int
+          supplierId: Guid
+          supplierActive: bool
+          phase: DraftingPhase (open|blocked)
+          draftedInvoiceIds: Guid[]
     tests:
-      state folds a draft:
+      an active supplier is open for drafting:
         given:
-          - e: Invoice / InvoiceDrafted
-            props: { invoiceId: inv1 }
+          - e: Supplier / SupplierCreated
+            props: { supplierId: acmeId, supplierNumber: S-1001 }
         then:
-          - s: Invoice
-            props: { phase: draft, version: 1 }
-      state folds a submission:
-        given:
-          - e: Invoice / InvoiceDrafted
-            props: { invoiceId: inv1 }
-          - e: Invoice / InvoiceSubmitted
-            props: { invoiceId: inv1 }
-        then:
-          - s: Invoice
-            props: { phase: submitted, version: 2 }
+          - s: InvoiceDrafting
+            props: { supplierId: acmeId, supplierActive: true, phase: open }
 ```
 
 Form B schema change, `element` (`schema.json:117-153`); `givenElement` (`:154-173`) and `thenElement` (`:190-215`) gain the same three properties and three `oneOf` arms. Before:
@@ -203,9 +248,9 @@ Form B breaks RFC 0001's rule that a profile document with the header removed is
 
 #### Choosing between A and B
 
-The case for A. Event Modeling's picture has four lanes (trigger, command, event, view) and state is a read model: the decider's own projection of its stream, drawn as a green box like any other. The five kinds each map to a box on the canvas; `s:` would be the first kind with no canvas counterpart. A breaks nothing: no schema change, no change to the Go reference tools, no `em fmt` change, and all 185 existing tests are already written in it. The generator already keys on the lane text (`TestsEmitter.cs:86`, `:114`; `EmParser.cs:147`).
+The case for A. Event Modeling's picture has four lanes (trigger, command, event, view) and state is a read model: the decision model's own projection of the events its query matches, drawn as a green box like any other. The five kinds each map to a box on the canvas; `s:` would be the first kind with no canvas counterpart. A breaks nothing: no schema change, no change to the Go reference tools, no `em fmt` change, and all 185 existing tests are already written in it. The generator already keys on the lane text (`TestsEmitter.cs:86`, `:114`; `EmParser.cs:147`).
 
-The case for B. An explicit kind states what the element is; A reserves a piece of prose and depends on a trimmed string compare, and a human screen named `State` (an "Order status" page a modeller calls `State /`) becomes illegal by accident. Under B the generator, the linter and xmlang's `during` key on `EmElementType.State`, never on lane text, and `em fmt` cannot normalize the meaning away. B is also the maintainer's own first instinct ("perhaps s: rather than v:").
+The case for B. An explicit kind states what the element is; A reserves a piece of prose and depends on a trimmed string compare, and a human screen named `State` (an "Order status" page a modeller calls `State /`) becomes illegal by accident. Under B the generator, the linter, the query derivation and xmlang's `during` key on `EmElementType.State`, never on lane text, and `em fmt` cannot normalize the meaning away. B is also the maintainer's own first instinct ("perhaps s: rather than v:").
 
 Consequences:
 
@@ -217,63 +262,122 @@ Consequences:
 | Go reference tools | no change | four files: `parser.go:14-29` and `:253-255`, `ast.go:41-64`, `formatter.go:17-33`, `main.go:117-124` per-type colours; plus diagram templates (not fetched) |
 | Local toolchain | none | eleven sites: `EmElementType` and `Display` (`EmAst.cs:13`, `:17-25`), `Prefixes` (`:66-82`), `AllowedGiven`/`AllowedThen` (`:224-227`), `EmFormatter.TypeKey` (`EmFormatter.cs:92-103`), `SpecModel.Kinds` (`SpecModel.cs:60-66`), `TestModel.Kinds` (`TestModel.cs:81-84`), `EmParser.Kinds` (`EmParser.cs:86-92`), `TestsEmitter` classification (`TestsEmitter.cs:84-90`, `:114`), `EmSpec.FindView`/`PhaseValues` (`EmParser.cs:24-28`, `:145-151`) |
 | Behaviour today | passes every surface; already the generator's classification key | rejected by schema, Go, `em lint`, `em fmt`; silently dropped in `steps` by `SpecModel`/`EmParser`; `InvalidDataException` at `TestModel.cs:101` in `given`/`then` |
-| Generator | keeps `Lane == "State"` checks | replaces them with a kind check; `EmitTarget.StateType` (name convention) unchanged either way |
-| xmlang | `during` map keys stay `"State / Invoice"` | `during` map keys become the decider name `Invoice`; `EmParser.PhaseValues` filters on kind |
+| Generator and query derivation | keys on `Lane == "State"` to find fold tests and identity props | keys on the kind; `EmitTarget.StateType` (name convention) unchanged either way |
+| xmlang | `during` map keys stay `"State / Invoice"` | `during` map keys become the model name `Invoice`; `EmParser.PhaseValues` filters on kind |
 | Existing models | zero edits | 123 `- v: State /` lines rewritten to `s:` across four files (23, 27, 25, 48; mechanical) |
 | Collision risk | a screen called `State` is illegal under the profile | none |
 | Dual specification (`redteam.md` R11) | state props are documentation nothing checks | the same, with a dedicated kind asserting a shape nothing verifies |
 | Red team verdict (`redteam.md` R10) | accept | withdraw: a base-spec kind change wearing a profile; the plan's stand-alone claim fails; first kind with no canvas counterpart. Re-open condition from `cut-lines.md` section B: a second tool needs to distinguish state from view without the profile header |
 
+DCB changes nothing in this table: the query is derived from fold tests and identity props, which both forms carry identically.
+
 Decision: maintainer, on reading.
 
-### 2. Given shape and one decider per decision
+### 2. Given: exactly one explicit state
 
 Amend "Test Structure" under the profile. The current text reads "If `given` is present and non-empty, its elements MUST be events or views". Add:
 
-- A test whose `when` is present and non-empty is a decision test; its `given` MUST be empty, or exactly one state element optionally accompanied by non-state views
-- A test whose `when` is absent or empty is a fold or projection test; its `given` MUST contain events only
-- An event in a decision test's `given` MUST be reported as an error (`em-given-events-in-decision`)
-- A `given` that holds elements of more than one kind MUST be reported as an error (`em-given-mixed`)
-- A decision test whose `given` holds more than one state element MUST be reported as an error (`em-given-multi-state`)
-- In a decision test whose `given` holds a state element, every event in `then` MUST carry the swimlane of that state's decider; a `then` event on another swimlane MUST be reported as an error (`em-given-decider-mismatch`)
+- A test whose `when` is present and non-empty is a decision test; its `given` MUST hold exactly one state element, which MAY be accompanied by non-state views the automation reads and MUST NOT be accompanied by events or by a second state element; a violation MUST be reported as an error (`em-given-not-one-state`)
+- A state element with no `props` is the empty state: the model's query matched no events at the position the decision was made; the empty state needs no fold test, because the fold over no events is the identity
+- Every other state element in a decision test's `given` MUST be produced by a fold test in the same document (section 3)
 
-An empty `given` is the decider's initial state; the models use it for the empty-stream rejection (`blindbudet.em.yaml:139`, `:153`; `mer-eller-mindre.em.yaml:273`, "GameNotFound is the empty stream") and it is the conforming given for a command that creates an instance.
+`given: []` appears nowhere in the profile. "Initial state" is not a concept the profile has: a decision either starts from the empty state, written as the named state element with props absent, or from a state some fold test produces. A rich starting state (an Organization after its onboarding todo list ran: workspace created, admin invited, plan selected, billing connected) is a state produced by a fold over those four events, and its decision tests give it like any other. Writing the name in the empty case is what makes the test say which query returned nothing: `v: State / InvoiceDrafting` with no props means no supplier and no draft matched, which is how `SupplierNotFound` becomes a decision the model can make (section 1, third decision test).
 
-The last bullet is what makes the map 1:1. Without it a decision test may give one decider's state and emit another decider's events, which is the cross-decider decision the multi-state rule rejects when there are three states. Three lob-ap tests do so today. `✍️ Draft Invoice` (`:292-340`) gives `v: State / Supplier` (`:324`, `:334`) and emits `e: Invoice / InvoiceDrafted` (`:330`). `✍️ Reverse Payment` gives `State / Invoice` and emits `Payment / PaymentReversed` (`:993-1000`, event declared at `:983`). `✍️ Void Invoice` gives `State / Invoice` and emits `Invoice / InvoiceVoided` together with `Ledger / LiabilityReversed` (`:1042-1052`, events at `:1028`, `:1034`). The conforming rewrite of the DraftInvoice success case, using the initial state of the decider that owns the event:
+The one-state rule collapses the three shape lints of the previous draft (`em-given-events-in-decision`, `em-given-mixed`, `em-given-multi-state`) into one. `em-given-not-one-state` fires on 26 of 185 tests today: the 22 empty givens (5, 7, 6 in the games; lob-ap `:106`, `:123`, `:176`, `:701`), the three-state given at `lob-ap.em.yaml:685-692`, and the three Todo-only givens (`:931`, `:943`, `:1108`). `em-fold-shape` fires on none: all ten fold tests in the four documents give at least one event and pin one state.
+
+The three-state given is the bulk approval, `✍️ Bulk Approve` (`lob-ap.em.yaml:666-700`): `ApproveInvoices` over a selection, three `State / Invoice` instances in `given`, one `Invoice / InvoiceApproved` and one `BulkApproval / BulkApprovalCompleted` in `then`, with the header comment admitting the invented stream ("the summary lives on a BulkApproval stream", `:664-665`). Under the profile it is one decision model over many tagged invoices; the three states and the invented stream both go away:
 
 ```yaml
-# proposed rewrite of lob-ap.em.yaml:322-331
-      draft can be saved for an active supplier:
-        given: []                      # a new invoice: the Invoice decider's initial state
+# proposed rewrite of lob-ap.em.yaml:666-700
+  ✍️ Bulk Approve:
+    steps:
+      - t: ✅ Approver /Approval queue
+      - c: ApproveInvoices
+        props: { invoiceIds: Guid[], comment: string }
+      - x: NothingSelected
+      - e: Invoice / InvoiceApproved                 # one per eligible invoice
+      - e: Invoice / BulkApprovalCompleted           # the swimlane is canvas grouping; no BulkApproval stream
+        props: { bulkApprovalId: Guid, invoiceIds: Guid[], approvedIds: Guid[], skippedIds: Guid[], skipped: SkippedInvoice[], approvedBy: Guid }
+      - v: Approval queue
+    tests:
+      eligible invoices are approved and ineligible ones skipped with reasons:
+        given:
+          - v: State / ApprovalBatch
+            props:
+              invoiceIds: [inv1, inv2, inv3]
+              candidates: [cand1Submitted12500ByAnna, cand2Submitted900000ByAnna, cand3Submitted100ByBo]
         when:
-          - c: DraftInvoice
-            props: { supplierId: acmeId, invoiceNumber: A-2026-0042, currency: SEK, lines: [line1], costCenter: CC-100 }
+          - c: ApproveInvoices
+            props: { invoiceIds: [inv1, inv2, inv3] }   # boId, limit 50000
         then:
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+          - e: Invoice / BulkApprovalCompleted
+            props: { bulkApprovalId: minted, invoiceIds: [inv1, inv2, inv3], approvedIds: [inv1], skippedIds: [inv2, inv3], skipped: [skipInv2OverLimit, skipInv3Own], approvedBy: boId }
+
+  👀 Approval Batch Decision Model:
+    steps:
+      - v: State / ApprovalBatch
+        props:
+          invoiceIds: Guid[]                           # tag: the selection
+          candidates: ApprovalCandidate[]              # { invoiceId, phase: InvoicePhase, totalAmount: decimal, createdBy: Guid }
+          completedBulkApprovalIds: Guid[]             # tag
+    tests:
+      batch folds the submitted invoices in the selection:
+        given:
           - e: Invoice / InvoiceDrafted
-            props: { invoiceId: minted, supplierId: acmeId, invoiceNumber: A-2026-0042, currency: SEK, lines: [line1], createdBy: annaId }
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv2, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv2, totalAmount: 900000 }
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv3, supplierId: acmeId, createdBy: boId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv3, totalAmount: 100 }
+        then:
+          - v: State / ApprovalBatch
+            props: { invoiceIds: [inv1, inv2, inv3], candidates: [cand1Submitted12500ByAnna, cand2Submitted900000ByAnna, cand3Submitted100ByBo] }
+      batch folds its own outcome:                    # closes the model: section 3 requires every then-event type to be folded
+        given:
+          - e: Invoice / InvoiceDrafted
+            props: { invoiceId: inv1, supplierId: acmeId, createdBy: annaId }
+          - e: Invoice / InvoiceSubmitted
+            props: { invoiceId: inv1, totalAmount: 12500 }
+          - e: Invoice / InvoiceApproved
+            props: { invoiceId: inv1, approvedBy: boId }
+          - e: Invoice / BulkApprovalCompleted
+            props: { bulkApprovalId: bulk1, invoiceIds: [inv1], approvedIds: [inv1], approvedBy: boId }
+        then:
+          - v: State / ApprovalBatch
+            props: { invoiceIds: [inv1], candidates: [cand1Approved], completedBulkApprovalIds: [bulk1] }
 ```
 
-The rejection case, `cannot draft against an inactive supplier` (`:332-340`), reads the supplier's status, which the model already declares as a context dependency on the Invoice state (`supplierStatus: SupplierStatus   # via SupplierContext dependency`, `:1289`; the same pattern as `ExceedsApprovalLimit`, `:37-38`). emlang has no construct for a context dependency in a test, so under the profile that test either gives `State / Invoice` with `supplierStatus: inactive` set on the initial state, treating the dependency as a state prop, or remains an error until a context construct exists. For `ReversePayment` and `VoidInvoice` the conforming forms are to put the event on the deciding stream (`Invoice / PaymentReversed`, `Invoice / LiabilityReversed`) or to move the second-stream event into a processor slice that reacts to the Invoice event. The profile does not choose.
+The `ApprovalBatch` query, read off the folds: `InvoiceDrafted`, `InvoiceSubmitted`, `InvoiceApproved`, `BulkApprovalCompleted`, tagged by the selected `invoiceIds`. The append condition guarantees that none of the three invoices was approved, rejected or withdrawn by someone else between the read and the append, which is exactly the guarantee a per-stream `expectedVersion` cannot give across three streams.
 
-`em-given-events-in-decision` and `em-given-mixed` fire on none of the 185 tests. `em-given-multi-state` fires once, on `lob-ap.em.yaml:685-692`: `ApproveInvoices` is given three `State / Invoice` instances and emits one `Invoice / InvoiceApproved` plus a `BulkApproval / BulkApprovalCompleted` (`:697-700`); the conforming forms are a `BulkApproval` decider whose state carries the candidate rows, or a processor that issues one `ApproveInvoice` per row. `em-given-decider-mismatch` fires three times, all in lob-ap (`:322`, `:993`, `:1042`), none in the games.
+### 3. Fold by reference: closed model, tagged events, phase-level reachability
 
-### 3. Fold by reference, at name and phase level
-
-- Every state element that appears in any `given` MUST be the `then` of at least one fold test (a test without `when` whose `given` holds events only) in the same document; a violation MUST be reported as an error (`em-state-without-fold`)
+- Every event type in a decision test's `then` MUST appear in the `given` of at least one fold test, in the same document, whose `then` is the decision test's given state; a violation MUST be reported as an error (`em-then-outside-query`)
+- Every event in a fold test's `given` MUST declare, among its props in `steps`, at least one identity prop of the state the fold produces; a violation MUST be reported as an error (`em-fold-untagged-event`)
+- Every non-empty state element in a decision test's `given` MUST be the `then` of at least one fold test in the same document; a violation MUST be reported as an error (`em-state-without-fold`)
 - Every phase value pinned on a state element in a decision test's `given` MUST be pinned on that state in the `then` of at least one fold test in the same document; a violation MUST be reported as an error (`em-state-phase-without-fold`)
 - The fold test MAY appear anywhere in the document; document order carries no meaning
 
-The maintainer's phrase is "every such state preceding gwt's". Reference, not order, is the right axis for two reasons. First, all four models put the fold tests in a trailing slice explicitly marked as an appendix: `👀 Decision Model` at `blindbudet.em.yaml:920`, `mer-eller-mindre.em.yaml:1291`, `tank-till-tusen.em.yaml:1009`; `👀 Supplier Decision Model` and `👀 Invoice Decision Model` at `lob-ap.em.yaml:1261` and `:1281` under the comment "APPENDIX, not timeline steps" (`:1259`). A document-order rule would fail all 106 state-given tests today. Second, the upstream spec attaches no meaning to slice order ("Multiple Slices": "Multiple slices MAY be defined in the same document", nothing more), and xmlang RFC 0001 reads slice order as the timeline for other purposes; the fold belongs outside that timeline.
+The first rule closes the decision model: a decision emits only event types its own query reads, because under DCB an event outside the query is invisible to the append condition and to the next fold, so the model could neither guard against it nor observe it. The consequence is that a summary event such as `BulkApprovalCompleted` MUST be folded even when the fold does nothing useful with it (section 2's second `ApprovalBatch` fold). This rule replaces the previous draft's `em-given-decider-mismatch`; see the rejected alternative below.
 
-The phase-level rule is the one that carries weight. The name-level check passes on all four models (`em-state-without-fold` fires on none of 185), but it demonstrates only that some fold reaches the decider, not that the state a decision starts from is reachable. Counted mechanically: phase values pinned in decision givens that no fold test in the document produces are, in lob-ap, `draft` (8 givens), `approved` (7), `rejected` (1) and `scheduled` (1), 17 of 40 state givens, against folds that produce only `submitted`, `onHold` and `paid` (`:1298-1336`); in the games, `lobby` in 4, 5 and 4 givens, against folds that produce only `started` (`blindbudet.em.yaml:946-986`). So `em-state-phase-without-fold` fires 17/4/5/4 today, and the fix is one fold test per unproduced value (four in lob-ap, one per game). After the `status` to `phase` rename of section 5, `Supplier.active` (`:325`) joins the lob-ap list, since the Supplier fold produces only `inactive` (`:1271-1279`).
+The second rule is what makes the query executable: a DCB query matches events by type and tag, and an event type that carries none of the model's identity props cannot be matched to an instance. It checks the event type's declared props in `steps`, not the fixture values in the fold test, since fixtures are sparse by convention ("asserts only the props its `decide` actually reads", `blindbudet.em.yaml:25-26`).
 
-The name-level rule is kept as the weaker fallback because it is the only one that reaches a decider without a `phase` prop, and because a state pinned without a phase value in a given (the games pin `players`, `currentLotIndex`, `lots` beside `phase`) still needs some fold to name it. Both rules are scoped to the document, not the file, so a fold in a sibling YAML document does not count; a model that spans documents repeats the fold or merges the documents.
+The maintainer's phrase is "every such state preceding gwt's". Reference, not order, is the right axis: all four models put the fold tests in a trailing slice marked as an appendix (`👀 Decision Model` at `blindbudet.em.yaml:920`, `mer-eller-mindre.em.yaml:1291`, `tank-till-tusen.em.yaml:1009`; `👀 Supplier Decision Model` and `👀 Invoice Decision Model` at `lob-ap.em.yaml:1261` and `:1281`, "APPENDIX, not timeline steps", `:1259`), the upstream spec attaches no meaning to slice order ("Multiple Slices"), and xmlang RFC 0001 reads slice order as the timeline for other purposes.
+
+The phase-level rule is the one that carries weight; the name-level rule is kept as the weaker fallback because it is the only one that reaches a model without a `phase` prop. Counted mechanically: `em-then-outside-query` fires on 19 decision tests today, 3 per game (`NextLotStarted`, `AuctionEnded` and their siblings are emitted but never folded: `blindbudet.em.yaml:791`, `:831`, `:848`) and 10 in lob-ap (`:157` `SupplierUpdated`, `:252` `SupplierReactivated`, `:322` `InvoiceDrafted` from `State / Supplier`, `:373` `DraftEdited`, `:420` `DraftDiscarded`, `:508` `SubmissionWithdrawn`, `:546` `InvoiceReopened`, `:642` `InvoiceRejected`, `:993` `PaymentReversed`, `:1042` `InvoiceVoided` and `LiabilityReversed`). `em-fold-untagged-event` fires on none: every folded event type in the four documents declares `gameId`, `invoiceId` or `supplierId`. `em-state-without-fold` fires on none. `em-state-phase-without-fold` fires 17 in lob-ap (`draft` 8, `approved` 7, `rejected` 1, `scheduled` 1; folds produce only `submitted`, `onHold`, `paid`, `:1298-1336`) and 4, 5, 4 in the games (`lobby`; folds produce only `started`).
 
 ### 4. Todo givens
 
-- A decision test whose `given` holds a non-state view (form A: any swimlane other than `State`; form B: any `v:`) SHOULD also hold the state element of the decider the command validates against; a Todo given without an accompanying state MUST be reported as a warning (`em-given-todo`)
+- A decision test whose `given` holds a non-state view (form A: any swimlane other than `State`; form B: any `v:`) SHOULD also hold the state element of the decision model the command validates against; a Todo given without an accompanying state MUST be reported as a warning (`em-given-todo`)
 
-Event Modeling's Automation pattern is "Event(s) -> View -> Automated Trigger -> Command -> Event(s)", and "the view that the automated process monitors, is a simple todo list. For each row the automated process calls a use case, which provides a new event". A Todo in the `given` of an automation slice is therefore the method's own shape, not a smell, and lob-ap models it so (`✍️ Execute Payment Run`, `:907-912`; `✍️ Remind Approvers`, `:1093-1098`). What the Todo does not carry is the decider's guard: the processor selects the row, the decider validates it. The rule asks for both, per row, since the use case is called per row. Written out for `lob-ap.em.yaml:931-942`:
+Event Modeling's Automation pattern is "Event(s) -> View -> Automated Trigger -> Command -> Event(s)", and "the view that the automated process monitors, is a simple todo list. For each row the automated process calls a use case, which provides a new event". A Todo in the `given` of an automation slice is therefore the method's own shape, and lob-ap models it so (`✍️ Execute Payment Run`, `:907-912`; `✍️ Remind Approvers`, `:1093-1098`). What the Todo does not carry is the decision model's guard: the automation selects the row, the decision model validates it and the append condition protects it. Written out for `lob-ap.em.yaml:931-942`, with the payment run as its own decision model:
 
 ```yaml
 # proposed rewrite of lob-ap.em.yaml:931-942
@@ -281,126 +385,150 @@ Event Modeling's Automation pattern is "Event(s) -> View -> Automated Trigger ->
         given:
           - v: Todo / Due payments
             props: { asOf: 2026-09-30, due: [dueInv1], hasDue: true }
-          - v: State / Invoice
-            props: { invoiceId: inv1, phase: scheduled, version: 6 }
+          - v: State / PaymentRun
+            props: { invoiceIds: [inv1], scheduled: [inv1Scheduled20260930], paidInvoiceIds: [] }
         when:
           - c: ExecutePaymentRun
             props: { runDate: 2026-09-30 }
         then:
-          - e: Payment / PaymentRunExecuted            # em-given-decider-mismatch: see section 2
+          - e: Payment / PaymentRunExecuted
             props: { paymentRunId: minted, runDate: 2026-09-30, payments: [paidInv1], totalAmount: 12500 }
           - e: Invoice / InvoicePaid
             props: { invoiceId: inv1, paymentRunId: minted, bankReference: ref1 }
 ```
 
-The rewrite exposes a second finding: `PaymentRunExecuted` is on the `Payment` swimlane while the given state is `Invoice`, so section 2's one-decider rule fires on the corrected test too. That is the model telling the truth about a payment run being its own decider, and the profile leaves the split to the modeller. `em-given-todo` fires three times today, at `lob-ap.em.yaml:933`, `:945` and `:1110`, none in the games. The `nothing due means no run` case (`:943-951`) has no invoice to give; under the rule it stays a warning unless a `PaymentRun` decider is introduced.
+`State / PaymentRun` folds `PaymentScheduled`, `PaymentRunExecuted` and `InvoicePaid`, tagged by `invoiceIds` and `paymentRunId`; both `then` events are inside its query, so section 3 is satisfied without moving either event to another swimlane. Under the one-state rule a Todo-only given is already an error (`em-given-not-one-state`); `em-given-todo` is the warning that names the fix. It fires three times today, at `lob-ap.em.yaml:933`, `:945` and `:1110`, none in the games. The `nothing due means no run` case (`:943-951`) gives the empty `State / PaymentRun`.
 
-### 5. Phase per decider
+### 5. Phase per decision model
 
 - A state element MAY carry a prop named `phase` whose declared type is an enum note of the form `<Enum> (a|b|c)`
-- Phase values are namespaced by decider: `Invoice.scheduled` and `Supplier.active` are distinct values even when spelled alike
-- A bare phase value declared by the `phase` enum of more than one decider in the same document SHOULD be reported as a warning (`em-phase-ambiguous`)
-- A second decider MUST NOT be required to avoid the name `phase`
+- Phase values are namespaced by decision model: `Invoice.scheduled` and `InvoiceDrafting.open` are distinct values, and two models MAY declare the same bare value
+- A second decision model MUST NOT be required to avoid the name `phase`
 
-The last bullet is the debt. `lob-ap.em.yaml:1267` reads `status: SupplierStatus (active|inactive)   # NOT named phase: keeps the xmlang phase namespace to State / Invoice`, with the reason at `:21-25`. Under the profile it becomes `phase: SupplierPhase (active|inactive)`; no value collides with `InvoicePhase` (`:1286`). `em-phase-ambiguous` is a warning, not an error, because the namespace makes a shared value legal by definition and the only consumer that could confuse two `draft`s, xmlang's list form of `during`, already has the map form (xmlang RFC 0001, Summary item 4, normative section 5, `xm-ambiguous-phase`); a consumer's convenience is not a spec error. The warning remains because a shared bare value forces every list-form `during` in the consumer onto the map form. It fires on none of the four models.
+The last bullet is the debt. `lob-ap.em.yaml:1267` reads `status: SupplierStatus (active|inactive)   # NOT named phase: keeps the xmlang phase namespace to State / Invoice`, with the reason at `:21-25`. Under the profile it becomes `phase: SupplierPhase (active|inactive)`. The previous draft's `em-phase-ambiguous` is deleted: two decision models sharing a value such as `draft` or `open` is normal, and the only consumer that could confuse them, xmlang's list form of `during`, already has the map form.
 
-How xmlang consumes it: `during` in map form, `during: { "State / Invoice": [draft, rejected] }` under form A or `{ Invoice: [draft, rejected] }` under form B; `EmSpec.PhaseValues` (`EmParser.cs:22`, computed at `:145-151`) becomes a map from decider name to values; `xm-unknown-phase` and `xm-phase-uncovered` resolve per decider; `xm-ambiguous-phase` is the consumer-side twin of `em-phase-ambiguous`.
+How xmlang consumes it: `during` in map form keyed by decision model name, `during: { "State / Invoice": [draft, rejected] }` under form A or `{ Invoice: [draft, rejected] }` under form B (xmlang RFC 0001, Summary item 4, normative section 5); `EmSpec.PhaseValues` (`EmParser.cs:22`, computed at `:145-151`) becomes a map from model name to values; `xm-unknown-phase` and `xm-phase-uncovered` resolve per model; `xm-ambiguous-phase` stays on the consumer side for the list form.
 
 ### 6. Actor identity
 
 - Every event in a decision test's `then` MUST carry the actor-identity prop defined by the convention in emlang RFC 0004; a violation MUST be reported as an error under the profile (`em-actor-identity`)
 
-RFC 0004 defines the convention (which prop names who acted, so xmlang's `self:` and its selection default resolve against the same prop) and stays non-normative; this RFC assigns the profile severity, because a non-normative appendix cannot make a document non-conforming and a later RFC must not re-severity an earlier profile's rules. No baseline is published here: the red team (`redteam.md` R18) shows RFC 0004's rule text needs role normalization (every model's trigger roles carry an emoji, `blindbudet.em.yaml:343`, `lob-ap.em.yaml:294`) before the rule can be run, and the count belongs to RFC 0004 once it is.
+RFC 0004 defines the convention (which prop names who acted, so xmlang's `self:` and its selection default resolve against the same prop) and stays non-normative; this RFC assigns the profile severity, because a non-normative appendix cannot make a document non-conforming and a later RFC must not re-severity an earlier profile's rules. No baseline is published here: the red team (`redteam.md` R18) shows RFC 0004's rule text needs role normalization (every model's trigger roles carry an emoji, `blindbudet.em.yaml:343`, `lob-ap.em.yaml:294`) before the rule can be run. RFC 0005's rename of `t:` to actor and automation (`rfcs/emlang-0005-initiators.md`), if adopted, gives the convention its vocabulary; this RFC does not depend on it.
 
 ### 7. Upstream's documented lints
 
-The profile mandates a Decision Model slice, an artefact Event Modeling's canvas does not have (all four patterns are timeline slices; the models mark it "APPENDIX, not timeline steps", `lob-ap.em.yaml:1259`). Upstream's `README.md` "Linter Rules" table (lines 70-81) documents `test-missing-command` at severity **error**, "Test without command (when)", and `slice-missing-event` at warning, "Slice without events". Every fold and projection test is a test without `when` (54 of 185 today: 12/15/12/15), and `slice-missing-event` is implemented (`linter.go`, ported at `Linter.cs:65-67`) and fires on every Decision Model and projection slice: `em lint` 0.2.0 reports 9, 11, 9 and 13 findings on blindbudet, mer-eller-mindre, tank-till-tusen and lob-ap. `test-missing-command` appears in the README only; `compat.md` section 4 finds no implementation in `linter.go`, and RFC 0004 records the `slice-missing-event` counts without proposing a change.
+The profile mandates fold tests and Decision Model slices, an artefact Event Modeling's canvas does not have (all four patterns are timeline slices; the models mark it "APPENDIX, not timeline steps", `lob-ap.em.yaml:1259`). Upstream's `README.md` "Linter Rules" table (lines 70-81) documents `test-missing-command` at severity **error**, "Test without command (when)", and `slice-missing-event` at warning, "Slice without events". Every fold and projection test is a test without `when` (54 of 185 today: 12/15/12/15), and `slice-missing-event` is implemented (`linter.go`, ported at `Linter.cs:65-67`) and fires on every Decision Model and projection slice: `em lint` 0.2.0 reports 9, 11, 9 and 13 findings on blindbudet, mer-eller-mindre, tank-till-tusen and lob-ap. `test-missing-command` appears in the README only; `compat.md` section 4 finds no implementation in `linter.go`.
 
 - Under the profile, a test without `when` whose `then` holds exactly one state or view element is a fold or projection test and MUST NOT be reported by `test-missing-command`
 - Under the profile, a slice whose `steps` hold only state elements is a Decision Model slice and MUST NOT be reported by `slice-missing-event`
-- Upstream SHOULD retract `test-missing-command` from the documented table or downgrade it to a warning, since a fold test is the spec's own "Multiple Tests" example shape (`TodoCompleteRegistrationFlow`, a test with no `when`, lines 231-232)
+- Upstream SHOULD retract `test-missing-command` from the documented table or downgrade it to a warning, since a test with no `when` is the spec's own "Multiple Tests" example shape (`TodoCompleteRegistrationFlow`, line 231)
 
 Said plainly: without these two exemptions the profile requires an artefact that upstream's documented rules condemn, and it is unadoptable upstream. With them, upstream's implemented linter changes one rule's scope.
 
 ### 8. Lint rules
 
-| Rule | Under `profile: decider` | Outside the profile | Fires today |
+| Rule | Under `profile: decider` | Outside the profile | Fires today (blindbudet / mer-eller-mindre / tank-till-tusen / lob-ap) |
 |---|---|---|---|
-| `em-given-events-in-decision` | error | off | none of 185 |
-| `em-given-mixed` | error | warning | none of 185 |
-| `em-given-multi-state` | error | off | `lob-ap.em.yaml:685` |
-| `em-given-decider-mismatch` | error | off | `lob-ap.em.yaml:322`, `:993`, `:1042` |
-| `em-state-without-fold` | error | off | none of 185 |
-| `em-state-phase-without-fold` | error | off | 17 (lob-ap), 4 (blindbudet), 5 (mer-eller-mindre), 4 (tank-till-tusen) |
-| `em-given-todo` | warning | off | `lob-ap.em.yaml:933`, `:945`, `:1110` |
-| `em-phase-ambiguous` | warning | warning | none of 4 models |
+| `em-given-not-one-state` | error | off | 5 / 7 / 6 / 8 (22 empty givens, `lob-ap.em.yaml:685` three states, `:931`, `:943`, `:1108` Todo only) |
+| `em-fold-shape` | error | off | 0 / 0 / 0 / 0 |
+| `em-then-outside-query` | error | off | 3 / 3 / 3 / 10 |
+| `em-fold-untagged-event` | error | off | 0 / 0 / 0 / 0 |
+| `em-state-without-fold` | error | off | 0 / 0 / 0 / 0 |
+| `em-state-phase-without-fold` | error | off | 4 / 5 / 4 / 17 |
+| `em-given-todo` | warning | off | 0 / 0 / 0 / 3 (`lob-ap.em.yaml:933`, `:945`, `:1110`) |
 | `em-actor-identity` | error | off | not measured; rule text in RFC 0004 needs role normalization first |
 
-`em-given-events-in-decision` is off outside the profile because the upstream spec's own example is events-given with `when`. `em-given-mixed` and `em-phase-ambiguous` stay on as warnings because they indicate a confused model under any reading.
+Every rule is off outside the profile: each depends on the meaning of `given` the profile assigns, and the upstream spec's own example is events-given with `when`.
 
 ### 9. Upstream text touched
 
 - "Swimlanes" (form A only): one profile-scoped bullet reserving `State`.
 - "Elements" (form B only): "Emlang defines 5 element types" becomes 6; a new table row State, `s:`, `st:`, `state:`.
-- "Test Structure": the table rows `given` and `then` (form B adds `s`); after "If `given` is present and non-empty, its elements MUST be events or views", the six profile bullets of section 2.
+- "Test Structure": the table rows `given` and `then` (form B adds `s`); after "If `given` is present and non-empty, its elements MUST be events or views", the bullets of sections 2 and 3.
 - "Profiles" (new in RFC 0001): a subsection "decider" holding sections 1 to 7 of this RFC.
 - `README.md` "Linter Rules": the exemptions and the retraction of section 7.
+
+## Rejected alternative: the aggregate rule
+
+The previous draft required that every event in a decision test's `then` carry the swimlane of the given state (`em-given-decider-mismatch`): one state, one stream, one owner, the aggregate. It is rejected because the invariants the domain actually has cross entities, and the rule fails exactly on them. The four lob-ap tests it rejected are the B2B cases DCB accepts:
+
+| lob-ap test | Reads | Writes | Under the aggregate rule | Under DCB |
+|---|---|---|---|---|
+| DraftInvoice, `:322` | the Supplier's status | `Invoice / InvoiceDrafted` | error: Supplier state, Invoice event | one model, `InvoiceDrafting`, query over `supplierId` (section 1) |
+| ReversePayment, `:993` | the Invoice's phase and payment run | `Payment / PaymentReversed` | error: Invoice state, Payment event | one model whose folds read `InvoicePaid` and `PaymentReversed`, tagged `invoiceId` and `paymentRunId` |
+| VoidInvoice, `:1042` | the Invoice's phase and amount | `Invoice / InvoiceVoided`, `Ledger / LiabilityReversed` | error: Ledger event | one model whose folds include `LiabilityReversed`; the ledger swimlane is grouping only |
+| ApproveInvoices, `:685` | three Invoices' phase, amount, creator | `InvoiceApproved` per invoice, a summary | error: three states | one model, `ApprovalBatch`, tagged by the selection (section 2) |
+
+Each of the four fires `em-then-outside-query` today for the same underlying reason (the fold tests do not yet read what the decision writes), and each is fixed by writing the fold, not by moving the event or splitting the decision. Under the profile a swimlane is canvas grouping only.
+
+## Rejected alternative: a declared event-type list
+
+The query could be declared instead of derived, as a props note on the state (`query: SupplierCreated | SupplierDeactivated | InvoiceDrafted`) or as a key. Rejected: it is a second home for a fact the fold tests already carry, it would drift from them with no check either way (the dual-specification failure `redteam.md` R11 names), and as a key it breaks the closed `element` schema. The cost of deriving is recorded as open objection 4: a fold test that is never written silently narrows the boundary.
 
 ## Changelog entry (draft)
 
 ### profile `decider` 1 (against spec 1.1.0)
 
-- **State element**: form A (reserved `State` swimlane) or form B (`s:`/`st:`/`state:` kind); decision recorded on adoption; state props are documentation until a generator emits the record
-- **Given shape**: decision tests give nothing or one state (plus the views a processor reads); fold and projection tests give events; the state and the `then` events name one decider. `em-given-events-in-decision`, `em-given-mixed`, `em-given-multi-state`, `em-given-decider-mismatch`
-- **Fold by reference** at name and phase level, scoped to the document. `em-state-without-fold`, `em-state-phase-without-fold`
-- **Todo givens** should be accompanied by the decider state. `em-given-todo`
-- **Phase per decider**: namespaced by decider; shared bare values warn. `em-phase-ambiguous`
+- **State element is a decision model**: form A (reserved `State` swimlane) or form B (`s:`/`st:`/`state:` kind), decision recorded on adoption; query by example from fold tests (event types) and identity props (tags); append condition replaces per-stream version; state props are documentation until a generator emits the record; names free, swimlanes are grouping
+- **Given is exactly one explicit state**: empty state is the named element with props absent; no `given: []`; no initial state. `em-given-not-one-state`, `em-fold-shape`
+- **Closed, tagged, reachable**: then-events inside the given state's query; fold events carry a state identity prop; every non-empty state and every pinned phase value produced by a fold in the document. `em-then-outside-query`, `em-fold-untagged-event`, `em-state-without-fold`, `em-state-phase-without-fold`
+- **Todo givens** should be accompanied by the decision model. `em-given-todo`
+- **Phase per decision model**: namespaced; shared bare values are normal; `em-phase-ambiguous` deleted
 - **Actor identity**: error under the profile; convention in RFC 0004. `em-actor-identity`
 - **Upstream lints**: fold tests exempt from `test-missing-command`, Decision Model slices exempt from `slice-missing-event`
+- **Rejected**: the aggregate rule (`em-given-decider-mismatch`); a declared event-type list
 
 ## Migration
 
-Games (`blindbudet`, `mer-eller-mindre`, `tank-till-tusen`): add the header; one `em-state-phase-without-fold` finding per pinned `lobby` (4, 5, 4 givens), fixed by one fold test each (`AuctionOpened` alone folds to `phase: lobby`); no other findings under form A. Under form B, rewrite `v: State / Game` to `s: Game` (23, 27 and 25 lines, givens, steps and folds together).
+lob-ap (`rfcs/0001-evidence/lob-ap.em.yaml`): add the header. Header wording at `:21-25` (phase namespace) and `:45` ("version int (monotonic per stream; expectedVersion on commands)") is rewritten for DCB: a global position replaces the per-stream version, and the append condition replaces `expectedVersion`; `ConcurrentEdit` (`:36`) becomes the append condition failing. The four empty givens (`:106`, `:123`, `:176`, `:701`) become named empty states (`v: State / Supplier`, `v: State / ApprovalBatch`). The bulk approval is rewritten per section 2. The ten `em-then-outside-query` findings are fixed by fold tests that read what the decisions write, four of them by the `InvoiceDrafting`, `PaymentRun` and cross-entity models of sections 1, 4 and the rejected alternative. The 17 `em-state-phase-without-fold` findings need four fold tests (`draft`, `approved`, `rejected`, `scheduled`). The three Todo givens gain a `State / PaymentRun` or `State / ApprovalReminder` state. `status` at `:1267` becomes `phase`.
 
-lob-ap: add the header; errors: one `em-given-multi-state` (`:685`), three `em-given-decider-mismatch` (`:322`, `:993`, `:1042`), 17 `em-state-phase-without-fold` fixed by four fold tests (`draft`, `approved`, `rejected`, `scheduled`); warnings: three `em-given-todo` (`:933`, `:945`, `:1110`); rename `status` to `phase` at `:1267` (optional, and the reason the debt exists; adds one `active` fold). Under form B the same rewrite as the games (48 lines).
+Games (`blindbudet`, `mer-eller-mindre`, `tank-till-tusen`; negative control, counted only): add the header; 5, 7, 6 empty givens become `v: State / Game`; one `lobby` fold each; three fold additions each for the `Next*` and `*Ended` event types. Under form B, 23, 27 and 25 `- v: State /` lines become `s:`.
 
 Documents outside the profile: none. A profile document with the header removed is a valid v1.0.0 document under form A. Under form B it is valid only once `s:` is in the base spec.
 
-Independent of A or B: every fixture writes spaced lanes (`State / Game`, `Clerk /Invoice details`) and both formatters emit `State/Game`, so the first `em fmt -w` on any of the four files is a whole-file textual diff with no semantic change, and every line number cited in this RFC and in the census moves (`compat.md`, section 3). Format the fixtures in one commit before adopting the profile, or accept that the citations are to the pre-format text.
+Independent of A or B: every fixture writes spaced lanes and both formatters emit `State/Game`, so the first `em fmt -w` on any of the four files is a whole-file textual diff with no semantic change, and every line number cited in this RFC and in the census moves (`compat.md`, section 3). Format the fixtures in one commit before adopting the profile, or accept that the citations are to the pre-format text.
 
 ## Implementation notes (reference implementation)
 
+- The profile is ahead of its reference implementation. The local runtime and the lob-ap header are stream-per-entity today: `version` per stream and `expectedVersion` on commands (`lob-ap.em.yaml:45`, `:36`), `Decider.Fold` over one event array (`TestsEmitter.cs:127`, `:175`), one `StateType` per generated decider (`EmitTarget.cs:14`). No DCB store is used or abstracted anywhere in `src/emlang`. This RFC states the target; it does not claim the tools meet it.
+- Generator target under the profile: for each decision model, emit `Evolve(state, event)` and `Decide(state, command, context)` as today (`DeciderEmitter.cs:33-51`), plus a `Query` (the event types read off the fold tests and the tag props read off the identity props) and an append condition (`Query` at the read position), against an abstract DCB store interface with two operations, read by query returning events and position, and append with condition. Whether a .NET DCB store exists to bind that interface to is not verified (open objection 6).
 - Rules 2 to 7 operate on `EmDocument` (`EmAst.cs:56`); implement them in `Linter` (`Linter.cs:19-32`) gated on the header from RFC 0001 (or on `lint.profile` from `.emlang.yaml`, `Program.cs:63-71`, if that route is taken). `LintSeverity` already has `Error` (`Linter.cs:3`); `Add` hard-codes `Warning` (`:92`) and needs a severity parameter.
-- Fold by reference needs a per-document pass after the sub-document is parsed: collect state names and pinned `phase` values in any `then` of a `when`-less events-only test, then check every decision `given`.
-- `TestsEmitter.EmitGiven` (`TestsEmitter.cs:112-133`) is called only from `EmitDecideGwt` (`:100`). Under the profile a decision test's `given` is empty, one state, or one state plus non-state views, so the fold arm (`:125-132`) is unreachable and can be deleted; the arm at `:114` should select the single state element and ignore accompanying views, which are the processor's input, not decider state. The two uncompilable emissions (three-state, Todo) become lint errors before generation. `EmitBody` (`:84-90`) and `EmitGiven` (`:114`) test `Lane == "State"`; under form B they test `Kind == 's'`.
+- Query derivation and the closed-model check need a per-document pass: for each state name, collect the fold tests (`when` absent, `given` all events, `then` one state), union the event types, collect pinned `phase` values, and read identity props (`*Id`, `*Ids`) off the state's `steps` declaration (props-richest occurrence, `EmParser.cs:129-133`); then check every decision test's `then` event types and given phase values against it, and every folded event type's declared props against the identity props.
+- `TestsEmitter.EmitGiven` (`TestsEmitter.cs:112-133`) is called only from `EmitDecideGwt` (`:100`). Under the profile a decision test's `given` is one state, possibly with non-state views, so the fold arm (`:125-132`) and the empty arm (`:123-124`) are unreachable and can be deleted; the arm at `:114` selects the single state element, treats absent props as the empty state (`StateType.Initial` today, the identity fold under DCB) and ignores accompanying views, which are the automation's input. `EmitBody` (`:84-90`) and `EmitGiven` (`:114`) test `Lane == "State"`; under form B they test `Kind == 's'`.
 - Form B touches the kind tables at `EmAst.cs:66-82`, `EmParser.cs:86-92`, `SpecModel.cs:60-66`, `TestModel.cs:81-84`; `AllowedGiven`/`AllowedThen` at `EmAst.cs:224-227`; `EmFormatter.TypeKey` at `EmFormatter.cs:92-103`; and `EmSpecShape.verified.txt` re-approves once.
-- `EmParser.PhaseValues` (`EmParser.cs:145-151`) becomes `IReadOnlyDictionary<string, IReadOnlyList<string>>` keyed by decider; `EmParser.Merge` (`:72-76`) merges per key; xmlang's `during` resolver reads the map form. One `EmSpecShape` re-approval.
-- A local bug to fix before the profile ships, not a spec rule: Go and `EmAst` split the swimlane at the first `/` (`ast.go:85-90`, `EmAst.cs:327`), while `EmParser.Split`, `SpecModel` and `TestModel` split at the last (`EmParser.cs:37`, `SpecModel.cs:83`, `:89`, `TestModel.cs:93`). For a name with two slashes such as `State / Order/Line`, `em lint` sees lane `State` and name `Order/Line`, while `xm` and the generator see lane `State / Order` and the element stops being a state for them (`PhaseValues` filters `Lane == "State"`, `EmParser.cs:147`). The divergence affects every event, view and trigger origin, so the fix is to split at the first `/` in the three last-slash sites; no `em-state-name-slash` rule is proposed.
-- `SurfaceEmitter` filters on `c`/`e`/`x` (`SpecModel.cs:19-20`) and is unaffected by either form; `EmitTarget.StateType` (`EmitTarget.cs:14`) stays single-valued, which is why multi-decider codegen is out of scope.
-- Go reference parity, from `compat.md`: under form A the reference tools need no change and `emlang fmt` already normalizes the lane text; under form B they need the kind in parser, AST, formatter and diagram templates.
+- `EmParser.PhaseValues` (`EmParser.cs:145-151`) becomes `IReadOnlyDictionary<string, IReadOnlyList<string>>` keyed by decision model; `EmParser.Merge` (`:72-76`) merges per key; xmlang's `during` resolver reads the map form. One `EmSpecShape` re-approval.
+- A local bug to fix before the profile ships, not a spec rule: Go and `EmAst` split the swimlane at the first `/` (`ast.go:85-90`, `EmAst.cs:327`), while `EmParser.Split`, `SpecModel` and `TestModel` split at the last (`EmParser.cs:37`, `SpecModel.cs:83`, `:89`, `TestModel.cs:93`). For a name with two slashes such as `State / Order/Line`, `em lint` sees lane `State` and name `Order/Line`, while `xm` and the generator see lane `State / Order` and the element stops being a state for them (`PhaseValues` filters `Lane == "State"`, `EmParser.cs:147`). The divergence affects every event, view and trigger origin, so the fix is to split at the first `/` in the three last-slash sites.
+- `SurfaceEmitter` filters on `c`/`e`/`x` (`SpecModel.cs:19-20`) and is unaffected by either form. Go reference parity, from `compat.md`: under form A the reference tools need no change; under form B they need the kind in parser, AST, formatter and diagram templates.
 
 ## Non-goals
 
-- **`compensates:` / `reverses:`** (xmlang RFC 0001 debt 5). Dead weight on every testbed: zero undo pairs in the three games; lob-ap models Void and ReversePayment as second events (`lob-ap.em.yaml:28-33`) and xmlang derives nothing from a compensation fact (xmlang RFC 0001 section 1, "xmlang MUST NOT derive `confirm` from compensation"). Re-open when a second consumer needs the fact.
-- **`params:` as a key** on views (debt 3). Deferred to the `(@param)` props-note convention and its lint in RFC 0004; a key would break the closed `element` schema for one consumer.
+- **`compensates:` / `reverses:`** (xmlang RFC 0001 debt 5). Dead weight on every testbed: lob-ap models Void and ReversePayment as second events (`lob-ap.em.yaml:28-33`) and xmlang derives nothing from a compensation fact (xmlang RFC 0001 section 1). Re-open when a second consumer needs the fact.
+- **`params:` as a key** on views (debt 3). Deferred to the `(@param)` props-note convention and its lint in RFC 0004.
 - **A `when:` predicate language** on tests or states. A state's props are the whole precondition.
-- **A context-dependency construct** in tests. Section 2 shows the need (`SupplierContext`, `ApproverContext`); it is a base-spec question, not a profile rule.
+- **Per-stream version or `expectedVersion` as spec constructs.** The append condition is derived from the query; a model that wants optimistic locking writes a `version` prop like any other.
+- **A declared query** (event-type list or tag list) on the state element. Rejected above; the fold tests are the declaration.
 - **Navigation semantics** (what the actor sees next, trigger origins, destinations). Trigger origin is RFC 0003; destinations are xmlang's.
-- **Multi-decider code generation.** Legal to lint and to consume; the reference generator's single `StateType` is unchanged by this RFC.
-- **A `State / Todo`** or any second decider kind. A decider is named by its state element; a Todo is a projection.
+- **Code generation for more than one decision model per document.** Legal to lint and to consume; the reference generator's single `StateType` is unchanged by this RFC.
+- **A `State / Todo`** or any second decision-model kind. A Todo is a projection an automation reads.
 
 ## Open objections (recorded, not resolved)
 
-1. All 185 tests were written by one team on four models, three of them games that xmlang treats as a negative control; "restates practice" rests on one practice, and sections 2 and 3 show the practice does not fully hold even there (three cross-decider decisions, 30 unproduced phase values). No second modeller has written under these rules.
+1. All 185 tests were written by one team on four models, three of them games that xmlang treats as a negative control; "restates practice" rests on one practice, and sections 2 and 3 show the practice does not fully hold even there (26 givens without one state, 19 decisions outside their query, 30 unproduced phase values). No second modeller has written under these rules; a second B2B testbed is intended (`PLAN.md`, Decisions 2026-09-10).
 2. Under form A, reserving `State` as a swimlane collides with any model whose human screen is called `State`; the profile makes an existing legal name illegal by prose.
-3. A profile whose rules are all lints may be a linter configuration, not a spec construct, and RFC 0001 records `.emlang.yaml` `lint.profile` as the alternative. The answer given here is that the profile narrows the meaning of `given`, which RFC 0001 section 2 permits and which is spec text: in v1.0.0 a `given` is "Pre-conditions (events, views)" (`schema.json:72`); in the profile a decision test's `given` is the decider's state and a fold test's `given` is its history, and a generator or a reader relies on that meaning whether or not a linter runs. The profile widens nothing: every profile document is a valid v1.0.0 document. The objection stands for the severity table, which is configuration, and it stands in full if the documents never leave the project that holds the config file.
+3. A profile whose rules are all lints may be a linter configuration, not a spec construct, and RFC 0001 records `.emlang.yaml` `lint.profile` as the alternative. The answer given here is that the profile narrows the meaning of `given`, which RFC 0001 section 2 permits and which is spec text: in v1.0.0 a `given` is "Pre-conditions (events, views)" (`schema.json:72`); in the profile a decision test's `given` is a decision model's state and a fold test's `given` is the events its query matched, and a generator or a reader relies on that meaning whether or not a linter runs. The profile widens nothing. The objection stands for the severity table, which is configuration, and in full if the documents never leave the project that holds the config file.
+4. Query by example narrows silently. A fold test nobody wrote removes an event type from the model's query with no diagnostic: the decision stops guarding against it and the append condition stops protecting against it. `em-then-outside-query` catches the case where the model itself emits the type; it cannot catch a type another model emits that this one should have read. A declared list would catch it and was rejected for drift; neither option is free.
+5. The closed model forces trivial folds. Every summary or notification event a decision emits must be read back by a fold that may do nothing with it (section 2's `completedBulkApprovalIds`), which is ceremony the aggregate rule did not have.
+6. The profile is ahead of its reference implementation: the local runtime is stream-per-entity, no DCB store interface exists in `src/emlang`, and whether a production-grade DCB store is available for .NET was not verified in this pass. A profile no tool can execute end to end is spec text about tests, not about running software, until that changes.
+7. Identity props are found by name (`*Id`, `*Ids`). A model whose identities are named otherwise (`slug`, `email`, `sku`) has no tags and no executable query; the convention is a naming rule imported from these four models.
 
 ## Evidence
 
-- Census and re-count: `rfcs/emlang-evidence/census-gwt-state.md` (sections 1 to 5); the re-count scripts used for the given-shape table, the phase-level baseline (17/4/5/4), the decider mismatches and the `em lint` `slice-missing-event` counts (9/11/9/13) live in the session scratchpad and are not committed; the red team reproduced the given-shape table independently (`rfcs/emlang-evidence/redteam.md` R23).
-- Red team: `rfcs/emlang-evidence/redteam.md` R4, R5, R6, R7, R8, R9, R11, R12, R13, R14, R21, R22, R23 (applied); R10 (recorded in the consequences table); Event Modeling quotations (Automation pattern, worked GWT) are taken from its header.
-- Design pass: `rfcs/emlang-evidence/cut-lines.md` (section B); plan and decisions: `rfcs/emlang-evidence/PLAN.md`; compatibility runs against schema, Go `emlang` 1.0.0, `em` and the codegen path: `rfcs/emlang-evidence/compat.md` (sections 1, 2.2, 3, 4; probe files `p3-s-steps`, `p4-s-given`, `p5-s-then`, `p6-two-t`).
-- Models: `rfcs/0001-evidence/lob-ap.em.yaml` (header `:11-25`; DraftInvoice `:292-340`; multi-state given `:685-692`; Execute Payment Run `:907-951`; ReversePayment `:983`, `:993-1000`; VoidInvoice `:1028-1052`; Todo givens `:933`, `:945`, `:1110`; `status` workaround `:1267`; decision models `:1261`, `:1281`; folds `:1271`, `:1298`, `:1313`, `:1324`); `tests/Emlang.Tests/fixtures/blindbudet.em.yaml` (`:22-26`, `:920-986`), `mer-eller-mindre.em.yaml` (`:24-27`, `:1291`), `tank-till-tusen.em.yaml` (`:21-24`, `:1009`).
+- Census and re-count: `rfcs/emlang-evidence/census-gwt-state.md` (sections 1 to 5); the re-count scripts for the given-shape table, the one-state baseline (5/7/6/8), the closed-model baseline (3/3/3/10), the tag check (0/0/0/0), the phase-level baseline (4/5/4/17) and the `em lint` `slice-missing-event` counts (9/11/9/13) live in the session scratchpad and are not committed; the red team reproduced the given-shape table independently (`rfcs/emlang-evidence/redteam.md` R23).
+- Decisions: `rfcs/emlang-evidence/PLAN.md`, "Decisions (2026-09-10, Martin): all-in on decider + DCB"; the 2026-09-09 decisions (both forms drafted, profile RFC first).
+- DCB: Pellegrini and Waidelich, Dynamic Consistency Boundaries (dcb.events); not fetched in this pass, terms used as the maintainer fixed them (query over event types and tags, append condition).
+- Red team: `rfcs/emlang-evidence/redteam.md` R4 (superseded by the closed-model rule), R5, R6, R7, R8 (superseded by deletion), R9, R11, R12, R13, R14, R21, R22, R23 (applied); R10 (recorded in the consequences table); Event Modeling quotations (Automation pattern, worked GWT) are taken from its header.
+- Design pass: `rfcs/emlang-evidence/cut-lines.md` (section B); compatibility runs against schema, Go `emlang` 1.0.0, `em` and the codegen path: `rfcs/emlang-evidence/compat.md` (sections 1, 2.2, 3, 4).
+- Models: `rfcs/0001-evidence/lob-ap.em.yaml` (header `:11-25`, `:36`, `:45`; CreateSupplier `:84-130`; DraftInvoice `:292-340`; Bulk Approve `:662-700`; Execute Payment Run `:907-951`; ReversePayment `:983`, `:993-1000`; VoidInvoice `:1028-1052`; Remind Approvers `:1093-1117`; `status` workaround `:1267`; decision models `:1261`, `:1281`; folds `:1271`, `:1298`, `:1313`, `:1324`; `supplierStatus` context prop `:1289`); `tests/Emlang.Tests/fixtures/blindbudet.em.yaml` (`:22-26`, `:791`, `:831`, `:848`, `:920-986`), `mer-eller-mindre.em.yaml` (`:24-27`, `:1291`), `tank-till-tusen.em.yaml` (`:21-24`, `:1009`).
 - Implementation: `src/emlang/Emlang/Linting/EmAst.cs`, `src/emlang/Emlang/EmParser.cs`, `src/emlang/Emlang/SpecModel.cs`, `src/emlang/Emlang/TestModel.cs`, `src/emlang/Emlang/EmitTarget.cs`, `src/emlang/Emlang/Linting/Linter.cs`, `src/emlang/Emlang/TestsEmitter.cs`, `src/emlang/Emlang/DeciderEmitter.cs`, `src/emlang/Emlang/Linting/EmFormatter.cs`, `src/emlang/Emlang.Cli/Program.cs`.
 - Upstream: `SPEC.md` sections "Elements", "Swimlanes", "Extended Form", "Multiple Slices", "Multiple Tests", "Tests", "Test Structure", "Document Structure"; `schema.json` `element`, `givenElement`, `thenElement`; Go `README.md` "Linter Rules" (lines 70-81) and "Configuration".
-- Consumer: xmlang `rfcs/0001-interaction-model.md`, sections 5 and 6, "Debts that belong in emlang" items 3 to 7, "Open objections" item 3.
+- Consumer: xmlang `rfcs/xmlang-0001-interaction-model.md`, sections 5 and 6, "Debts that belong in emlang" items 3 to 7, "Open objections" item 3.

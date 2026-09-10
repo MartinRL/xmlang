@@ -2,7 +2,7 @@
 title: "emlang RFC 0002: The decider profile (draft for spec 1.1.0, profile decider)"
 status: draft
 created: 2026-09-09
-targets: emlang spec 1.1.0 via RFC 0001 (`profile: decider`); consumer xmlang 0.6.0 (`during` per decider)
+targets: "emlang spec 1.1.0 via RFC 0001 (`profile: decider`); consumer xmlang 0.6.0 (`during` per decider)"
 depends: emlang RFC 0001 (profiles); required by emlang RFC 0004 (lints)
 ---
 # emlang RFC 0002: The decider profile

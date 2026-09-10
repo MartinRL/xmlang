@@ -3,7 +3,7 @@ title: "RFC emlang-0003: Trigger sets and trigger origin (draft)"
 status: draft
 created: 2026-09-09
 targets: emlang spec 1.0.0 (prose and lint only; no schema change)
-depends: Section A none; Section B on RFC emlang-0002 for the `profile: decider` severity column (RFC emlang-0001 defines the header, emlang-0002 the profile)
+depends: "Section A none; Section B on RFC emlang-0002 for the `profile: decider` severity column (RFC emlang-0001 defines the header, emlang-0002 the profile)"
 consumed by: xmlang RFC 0001, debts 1 and 2
 ---
 # RFC emlang-0003: Trigger sets and trigger origin

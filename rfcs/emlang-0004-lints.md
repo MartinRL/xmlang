@@ -3,7 +3,7 @@ title: "RFC emlang-0004: Lint rules, a non-normative appendix (draft)"
 status: draft
 created: 2026-09-09
 targets: emlang spec 1.0.0, new appendix "Lint rules (non-normative)"; no schema change
-depends: RFC emlang-0002 for `em-phase-transition-uncovered` (phase per decider), for the `profile: decider` severity column, and for the profile severity of `em-actor-identity`; RFC emlang-0003 for the two trigger rules it indexes; not independently acceptable (redteam.md R22)
+depends: "RFC emlang-0002 for `em-phase-transition-uncovered` (phase per decider), for the `profile: decider` severity column, and for the profile severity of `em-actor-identity`; RFC emlang-0003 for the two trigger rules it indexes; not independently acceptable (redteam.md R22)"
 consumed by: xmlang RFC 0001, debts 3, 6, 7 and 8
 ---
 # RFC emlang-0004: Lint rules (non-normative appendix)

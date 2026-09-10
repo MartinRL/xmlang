@@ -4,13 +4,27 @@ xmlang is a YAML-based DSL for **Experience Models**: the sibling dialect to eml
 
 The canonical specification lives here: [xmlang-spec.md](xmlang-spec.md). This repository is also the reference implementation: a parser, an Event Model resolution surface, and a linter implementing the spec's full rule set.
 
-The repository also hosts the .NET implementation of [emlang](https://github.com/emlang-project/emlang) itself — xmlang cannot live without it:
+The repository also hosts the .NET implementation of [emlang](https://github.com/emlang-project/emlang) itself — xmlang cannot live without it. The emlang here is an **opinionated dialect**: an Event Model DSL for **Vertical Slice Architecture × Decider × Dynamic Consistency Boundaries** (see [Stance](#stance)).
 
 - **Emlang** — the em parser (`EmParser`), the codegen model and emitters (`Emlang.CodeGen`), and the line-aware lint surface (`Emlang.Linting`).
 - **Emlang.Cli** — `em`, the .NET clone of the reference Go CLI (`dotnet tool install -g Emlang.Cli`). Commands so far: `em parse`, `em lint` and `em fmt` (`-w`, `--keys short|long`) with the reference toolchain's rule set and output format, stdin via `-`, plus `version`/`help`.
 - **Emlang.Generators** — Roslyn source generators: point an `AdditionalFiles` item at a `*.em.yaml` spec with `EmlangPrefix` metadata and the Commands/Events/Errors records, closed unions and Decider switch skeletons are emitted into the compilation; projects with `EmlangEmit=tests` get xUnit spec tests instead. The emitted unions require `LangVersion` preview (C# `union` types) in the consuming project.
 
 The emlang packages version and release independently (tags `emlang-v*`) from the xmlang packages (tags `xmlang-v*`).
+
+## Stance
+
+Event Modeling draws a system as a timeline of slices. This dialect takes three positions on what a slice *is*, and the [RFCs](rfcs/) make them lintable:
+
+| Position | Meaning here | Reference |
+|---|---|---|
+| **Vertical Slice Architecture** | Every slice is a complete feature: initiator, command, events, view, tests. Nothing is layered across slices. | Jimmy Bogard, [Vertical Slice Architecture](https://www.jimmybogard.com/vertical-slice-architecture/) (2018); Adam Dymitruk, [Event Modeling](https://eventmodeling.org/) |
+| **Decider** | A state-change slice is a pure `decide(command, state) → events` plus `evolve(state, event) → state`. Tests give **state**, never event lists; every state has a fold test that produces it. | Jérémie Chassaing, [Functional Event Sourcing Decider](https://thinkbeforecoding.com/post/2021/12/17/functional-event-sourcing-decider) (2021) |
+| **Dynamic Consistency Boundary** | A state is a *decision model*, defined by its fold tests: the event types they fold are its query, its identity props are its tags. No aggregates, no stream-per-entity; consistency is an append condition on that query. Swimlanes are canvas grouping only. | Sara Pellegrini, [Kill Aggregate!](https://sara.event-thinking.io/2023/04/kill-aggregate-chapter-1-I-am-here-to-kill-the-aggregate.html) (2023); Bastian Waidelich & Sara Pellegrini, [dcb.events](https://dcb.events/) |
+
+The intended domain is B2B SaaS and line-of-business software. Background on the method: Martin Dilger, [Understanding Eventsourcing](https://leanpub.com/eventmodeling-and-eventsourcing).
+
+The dialect is a strict superset of the upstream [emlang spec v1.0.0](https://github.com/emlang-project/spec); the positions above are proposed as a `decider` profile and companion RFCs under [rfcs/](rfcs/), drafts pending review.
 
 ## Install
 

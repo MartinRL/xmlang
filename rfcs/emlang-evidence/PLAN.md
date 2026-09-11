@@ -88,3 +88,12 @@ Uncontested fixes (R2-R9, R11-R14, R18-R23) are being folded into the drafts. Re
 - **RFC 0005 initiators:** rename `t:` trigger to actor / automation (base spec 1.1.0). Practitioner objection from Martin Dilger on record, quote pending. Martin to ask Dilger for his reasoning and for an outside model (answers redteam R24).
 - **Second testbed:** a ChronosHub flow is intended; this repo is public, so either anonymise into a generic publishing-SaaS model or cite counts only. Martin's call.
 - Still open from 2026-09-09: (1) root key vs `.emlang.yaml`; (2) form B; (3) RFC 0003 section B; (4) host-trigger fixture fix.
+
+## Decisions (2026-09-11, Martin): the four open questions closed
+
+1. **Root key vs `.emlang.yaml`: RFC 0001 withdrawn.** First ruling was `lint.profile: decider` in the config file (red team R1). Decision 2 then removed the reason for a profile at all: the decider rules are the dialect's default.
+2. **Form B wins, and the grammar forks.** `s:` is the canonical state element kind; `v: State / X` is the rejected alternative (state and read model would share a kind, the opinion invisible in the grammar). No lossless export to v1.0.0; the strict-superset claim in the README is dropped. Upstream tools do not read dialect files.
+3. **RFC 0003 section B cut.** Origin is an experience fact; the cross-check moves to xmlang as `xm-origin-mismatch`. Section A (trigger sets) stays.
+4. **Host-trigger fixture fix dropped** (R17). RFC 0005 actor/automation is where a dual initiator is expressed; the only evidence was the game models.
+
+Still open: xmlang `journeys` vs persona lines (raised by the railway diagram, 2026-09-10); Dilger quote for RFC 0005; second testbed (ChronosHub flow, anonymise or counts only).

@@ -171,6 +171,12 @@ Evidence: the LOB testbed has two deciders; the reference parser unions every `S
 
 ### 6. Lint rules
 
+Origin cross-check (moved here from emlang RFC 0003 on 2026-09-11; origin is an experience fact, so emlang keeps it as free text):
+
+- A trigger origin, the text after the swimlane separator of an emlang `t:`, MAY name a surface; when it does, a surface of that name MUST exist and MUST admit a persona whose `role` matches the trigger role, else `xm-origin-mismatch` (warning)  `# proposed`
+- An origin matching no surface is free text and is reported at most once per trigger; it never fails the model  `# proposed`
+- The check reads `compose` and `for:` only; it derives nothing from the origin (entry and destination stay as the Defaults state them)  `# proposed`
+
 | Rule | Severity | Meaning |
 |---|---|---|
 | `xm-confirm-not-boolean` | error | `confirm` is not `true` or `false` |
@@ -183,6 +189,7 @@ Evidence: the LOB testbed has two deciders; the reference parser unions every `S
 | `xm-command-trigger-mismatch` | warning | A command composed on a `for:`-scoped surface has no Event Model trigger whose role matches any listed persona's `role` |
 | `xm-command-phase-mismatch` | info | A command is composed on a surface active in a phase for which the Event Model has no success scenario for that command; info until emlang has a scenario-coverage lint |
 | `xm-cell-ambiguous` | info | Two surfaces in one `during` × `for` cell compose the same view and neither composes a command; suppressible |
+| `xm-origin-mismatch` | warning | An Event Model trigger origin (`t: Role /origin`) names a surface, and no surface of that name admits a persona with that `role`; origin text matching no surface at all is reported once per trigger |
 
 ### 7. Non-goals (additions)
 
@@ -233,8 +240,8 @@ None required. All v0.5 documents remain valid v0.6 documents. Single-decider do
 
 Named here so the derivations above become references instead of heuristics. None is proposed for xmlang.
 
-1. Trigger origin resolves to a view: `t: Role /View` as a view reference or a declared bare form (18/18 resolve on the LOB testbed; 1/12 on the games)
-2. True trigger sets: a host trigger beside the System trigger where the shipped UI gives the host a button (all three games)
+1. ~~Trigger origin resolves to a view~~ Reassigned to xmlang on 2026-09-11 as `xm-origin-mismatch` (§6): origin is an experience fact; emlang keeps it free text (emlang RFC 0003, Rejected alternatives). Census then: 18/20 resolved on the LOB testbed, 1/23 on the games.
+2. True trigger sets: paid by emlang RFC 0003 (several `t:` per slice = the command's trigger set). The host-beside-System fixture edit on the games was dropped on 2026-09-11 (games are the negative control); a dual initiator is expressed through emlang RFC 0005 when an LOB model shows one.
 3. View parameters: mark filter and query props as inputs to a projection, not projected data
 4. Phase per decider: a multi-decider model must not force the second decider to avoid the word `phase`
 5. `compensates:` or `reverses:` on domain merits; xmlang derives nothing from it

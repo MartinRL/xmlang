@@ -3,16 +3,16 @@ title: "RFC emlang-0004: Lint rules, a non-normative appendix (draft)"
 status: draft
 created: 2026-09-09
 targets: emlang spec 1.0.0, new appendix "Lint rules (non-normative)"; no schema change
-depends: "RFC emlang-0002 for `em-phase-transition-uncovered` (phase per decider), for the `profile: decider` severity column, and for the profile severity of `em-actor-identity`; RFC emlang-0003 for the two trigger rules it indexes; not independently acceptable (redteam.md R22)"
+depends: "RFC emlang-0002 for `em-phase-transition-uncovered` (phase per decider) and for the dialect severity of `em-actor-identity`; RFC emlang-0003 for the trigger rule it indexes; not independently acceptable (redteam.md R22)"
 consumed by: xmlang RFC 0001, debts 3, 6, 7 and 8
 ---
 # RFC emlang-0004: Lint rules (non-normative appendix)
 
-**Status: draft.** Nothing here is applied to the upstream spec, to `src/`, or to the fixtures. This RFC is the artifact the maintainer decides on. It proposes one appendix to the emlang spec and is the single list of every lint the emlang RFC set introduces, with the count each rule fires today on the four evidence models. The appendix is non-normative: no rule in it makes a document non-conforming, every rule is a recommendation, and it assigns no `error` severity of its own (`redteam.md` R21); where a profile adopts a rule, RFC emlang-0002 assigns the profile severity and this index copies it.
+**Status: draft.** Nothing here is applied to the upstream spec, to `src/`, or to the fixtures. This RFC is the artifact the maintainer decides on. It proposes one appendix to the emlang spec and is the single list of every lint the emlang RFC set introduces, with the count each rule fires today on the four evidence models. The appendix is non-normative: no rule in it makes a document non-conforming, every rule is a recommendation, and it assigns no `error` severity of its own (`redteam.md` R21); where the dialect adopts a rule as a base rule, RFC emlang-0002 assigns its severity and this index copies it.
 
 ## Summary
 
-1. A new spec appendix, "Lint rules (non-normative)", with one row per rule: id, severity by default and under `profile: decider`, the check in one sentence, and what a consumer does with it.
+1. A new spec appendix, "Lint rules (non-normative)", with one row per rule: id, severity in upstream-shaped documents and in the dialect, the check in one sentence, and what a consumer does with it.
 2. Four new rules: `em-phase-transition-uncovered` (scenario coverage), `em-actor-identity` (a prop-naming convention so events carry who acted), `em-view-prop-untraced` (a view prop with no demonstrated event origin; the origin half of Event Modeling's completeness rule, not the whole), and `em-param-note-malformed` with the `(@param)` props note for projection arguments.
 3. An index of the rules introduced by RFC emlang-0002 and emlang-0003 and of the three reference rules, so the appendix is the one place a tool author reads.
 4. No construct. Every rule reads existing free text: element names, `props` values, and tests.
@@ -28,14 +28,14 @@ xmlang's derived interaction stratum (RFC 0001 §4) rests on four facts emlang d
 ### Conventions
 
 - A rule id is a lowercase hyphenated token; rules introduced by this appendix carry the prefix `em-` to keep them apart from xmlang's `xm-` rules; the three reference rules keep their unprefixed ids.
-- Each rule has a recommended default severity and a severity under `profile: decider` (RFC emlang-0002); this appendix is non-normative, so tools SHOULD report at the listed severity, MAY let a document suppress a rule by id (the local `ignoreRules`, `Linter.cs:22`), and no rule here makes a document non-conforming.
+- Each rule has a recommended default severity and a severity in the dialect (RFC emlang-0002 makes the decider rules the dialect default, not a switchable profile; the default column is what a rule costs a document written in the upstream shape); this appendix is non-normative, so tools SHOULD report at the listed severity, MAY let a document suppress a rule by id (the local `ignoreRules`, `Linter.cs:22`), and no rule here makes a document non-conforming.
 - Severities are `off`, `info`, `warning`, `error` (`off` means the rule is not evaluated in that column); `error` appears only in rows copied from a normative RFC, never assigned here; a rule listed at `warning` in both columns fires on every known model today and is not to be promoted until a model exists with a clean baseline.
 - A rule that spans slices reads the whole document; "document" means one YAML document, not the file.
 
 ### `em-phase-transition-uncovered`
 
-- Severity: warning; under `profile: decider` warning.
-- Check: for each decider (a `State`-lane view with a `phase` enum note, RFC emlang-0002), for each command that has at least one scenario giving that decider's state, and for each declared phase value, the document has a test with that command in `when` and that state in `given` with `phase:` equal to the value; the rule fires per (phase, command) pair with no such test, success or rejection.
+- Severity: warning; in the dialect warning.
+- Check: for each decider (an `s:` state element with a `phase` enum note, RFC emlang-0002; the fixtures still write `v: State / X`), for each command that has at least one scenario giving that decider's state, and for each declared phase value, the document has a test with that command in `when` and that state in `given` with `phase:` equal to the value; the rule fires per (phase, command) pair with no such test, success or rejection.
 - The empty stream (`given: []`) is not a phase and is not counted; its shape is RFC emlang-0002's.
 - Consumer: xmlang promotes `xm-command-phase-mismatch` from info to warning and derives enablement per phase from success scenarios only (RFC 0001 L136, L184); a modeller reads the matrix as the decider's specification and adds the rejection scenarios that say what a command does in a phase where it must not succeed.
 
@@ -111,7 +111,7 @@ Fires today: lob-ap 94 (97 once Supplier is a decider), blindbudet 14, mer-eller
 
 ### `em-actor-identity`
 
-- Severity: warning; under `profile: decider` as RFC emlang-0002 assigns (the profile severity is defined there, not here).
+- Severity: warning; in the dialect as RFC emlang-0002 assigns (the dialect severity is defined there, not here).
 - Convention: an event produced by a slice whose trigger set (RFC emlang-0003 Section A) contains a human role carries exactly one actor prop, named either `<verb>By`, where `<verb>` is the participle in the event's own name (`InvoiceApproved` carries `approvedBy`), or `<role>Id`, where `<role>` is a normalized trigger role of the slice (`BidPlaced` carries `playerId`, `AuctionOpened` carries `hostPlayerId`).
 - Role normalization: take the trigger's swimlane text, remove every leading character that is not a letter or digit (emoji, variation selectors, zero-width joiners, whitespace), trim, and lowercase what remains; `🧑‍🎓 Player` normalizes to `player`, `🧑‍🏫 host` to `host`, `🧾 Clerk` to `clerk`, `⚙️ System` to `system`.
 - Prop matching: a prop is a `<role>Id` prop when its name, lowercased, starts with a normalized role of the slice's trigger set and ends with `id`; `playerId` matches `player`, `hostPlayerId` matches `host`, `invoiceId` matches no role.
@@ -124,7 +124,7 @@ Census, mechanical over the props-richest occurrence of each event in steps. lob
 
 ### `em-view-prop-untraced`
 
-- Severity: info; under `profile: decider` warning.
+- Severity: info; in the dialect warning.
 - Check: every prop declared on a view element in `steps`, other than a `(@param)` prop, is asserted in the `then` of at least one test of the document whose `given` is events and whose `then` is that view; the rule fires per prop never so asserted.
 - Scope: Event Modeling's completeness rule is two-sided, "All information has to have an origin and a destination" (eventmodeling.org, quoted in `redteam.md`); this rule checks the origin half only, taking the projection test as the document's demonstration that a prop has an event origin. The destination half, whether a consumer receives every datum it shows, is not checkable from the emlang document and stays manual (below). The rule is not Event Modeling's completeness check and does not claim to be (`redteam.md` R19).
 - Consumer: xmlang's label arguments (`xm-label-arg-missing`, RFC 0001 L102) and links default (L139) resolve against view props; an unasserted prop is one the transformer cannot rely on being populated.
@@ -172,9 +172,9 @@ Projection arguments today, manual, all on lob-ap: `approverId` `:713`, `asOf` `
 
 ### Index of all rules
 
-Counts are fires today per model in the order lob-ap / blindbudet / mer-eller-mindre / tank-till-tusen. Reference counts are from `em lint` 0.3.0 on 2026-09-09; RFC emlang-0002 rows copy its own table (`emlang-0002-decider-profile.md:430-439`), whose columns are profile first, default second; its `em-given-todo` fires are cited here at the element lines `:933, :945, :1110` (its §4), not the test-name lines its table uses (`redteam.md` R23).
+Counts are fires today per model in the order lob-ap / blindbudet / mer-eller-mindre / tank-till-tusen. Reference counts are from `em lint` 0.3.0 on 2026-09-09; RFC emlang-0002 rows copy its own table (`emlang-0002-decider-profile.md:352-359`), whose columns are dialect first, default second; its `em-given-todo` fires are cited here at the element lines `:933, :945, :1110` (its §4), not the test-name lines its table uses (`redteam.md` R23).
 
-| rule | source | default | `profile: decider` | fires today | consumer |
+| rule | source | default | dialect | fires today | consumer |
 |---|---|---|---|---|---|
 | `command-without-event` | reference (`Linter.cs:53-56`) | warning | warning | 0 / 0 / 0 / 0 | shape of a slice |
 | `orphan-exception` | reference (`:59-62`) | warning | warning | 0 / 0 / 0 / 0 | shape of a slice |
@@ -186,8 +186,7 @@ Counts are fires today per model in the order lob-ap / blindbudet / mer-eller-mi
 | `em-state-without-fold` | RFC 0002 | off | error | 0 / 0 / 0 / 0 | xmlang `during` trusts the fold |
 | `em-state-phase-without-fold` | RFC 0002 | off | error | 17 / 4 / 5 / 4 | every pinned phase value is produced by a fold |
 | `em-given-todo` | RFC 0002 | off | warning | 3 (`lob-ap:933, 945, 1110`) / 0 / 0 / 0 | coverage matrix above reads the transition |
-| `em-trigger-origin-unresolved` | RFC 0003 B | warning | per RFC 0002 | 2 / 7 / 9 / 6 | xmlang destination and entry defaults become references; withdrawn under the red team's alternative (`xm-origin-mismatch` in xmlang instead) |
-| `em-trigger-after-command` | RFC 0003 A | warning | warning | 0 / 0 / 0 / 0 | trigger set attaches to the right command |
+| `em-trigger-after-command` | RFC 0003 | warning | warning | 0 / 0 / 0 / 0 | trigger set attaches to the right command |
 | `em-phase-transition-uncovered` | this RFC | warning | warning | 94 / 14 / 17 / 14 | `xm-command-phase-mismatch` to warning |
 | `em-actor-identity` | this RFC | warning | per RFC 0002 | 1 / 1 / 1 / 1 | selection default and `self:` share one prop |
 | `em-view-prop-untraced` | this RFC | info | warning | 48 / 11 / 13 / 10 (40 / 11 / 13 / 10 once the UI filters leave lob-ap) | label arguments and links resolve against traced props |
@@ -207,7 +206,7 @@ None required; every rule reads documents that are valid today and no document b
 
 ## Implementation notes (reference implementation)
 
-- `LintSeverity` has `Warning` and `Error` (`Linter.cs:3`); `Info` is needed. Severity is fixed at `Add` (`:87-93`); the profile column needs a per-document severity table keyed by rule id.
+- `LintSeverity` has `Warning` and `Error` (`Linter.cs:3`); `Info` is needed. Severity is fixed at `Add` (`:87-93`); the dialect column needs a severity table keyed by rule id.
 - `Linter.Lint` is a per-slice pass (`:27-29`); the three document-spanning rules need a pass over `EmDocument` before the slice loop.
 - `em-phase-transition-uncovered` needs enum values per decider; `EmParser.PhaseValues` (`EmParser.cs:145-151`) computes one union today, which RFC emlang-0002 changes.
 - `EmField` (`EmParser.cs:8`) gains an `IsParam` flag; `SpecModel.MapType` needs no change. Adding fields to `EmSpec` or `EmField` re-approves `ApprovalTests.EmSpecShape.verified.txt`.
@@ -221,7 +220,7 @@ None required; every rule reads documents that are valid today and no document b
 - `compensates:` or `reverses:` (deferred by PLAN.md; xmlang derives nothing from it).
 - A rule that reads an xmlang document; the reverse-direction completeness check stays manual for that reason.
 - A severity policy beyond the two columns; per-team severity overrides are tool configuration.
-- Assigning `error` to any rule; that is a normative RFC's job (RFC emlang-0002 for the profile).
+- Assigning `error` to any rule; that is a normative RFC's job (RFC emlang-0002 for the dialect).
 - An emlang construct for UI filters; they are surface state.
 
 ## Open objections (recorded, not resolved)
@@ -231,7 +230,7 @@ None required; every rule reads documents that are valid today and no document b
 3. The coverage rule counts terminal phases (7 to 9 per game are `ended`) and cross-decider givens (`DraftInvoice`) in ways a modeller may find pedantic; the matrix is honest, the rule's boundary is a judgment.
 4. `em-view-prop-untraced` fires mostly on `gameId` and on `Invoice details`; both mechanical proxies are noisy, the proposed form depends on modellers asserting every prop in projection tests, and it covers the origin half of a two-sided rule.
 5. The `(@param)` note is invisible to the schema and silently ignored by tools that do not know it (`cut-lines.md` §E); the re-open condition for a key is stated, not met; and the argument-versus-filter line (`fromDate`/`toDate` fell on the filter side here) is a judgment per prop.
-6. Strict origin resolution (indexed from RFC emlang-0003) is real migration work and the red team recommends moving it to xmlang; recorded there.
+6. Origin resolution left emlang on 2026-09-11 (RFC emlang-0003 Rejected alternatives); it is `xm-origin-mismatch` in xmlang RFC 0001 and no longer indexed here.
 7. The `em-` prefix diverges from the unprefixed reference ids.
 8. Because the appendix is non-normative, nothing in it is enforceable; a team that ignores every rule is conforming, so the baselines above measure only what a team chooses to look at.
 

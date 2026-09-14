@@ -111,3 +111,7 @@ Still open after acceptance:
 4. xmlang `journeys` vs persona lines (2026-09-10).
 5. Dilger quote and outside model for RFC 0005.
 6. Every RFC's "Open objections (recorded, not resolved)" section stands as recorded; acceptance does not close them.
+
+## Decisions (2026-09-14, Martin, later the same day): generators are per application
+
+The xmlang repository is the two DSLs and nothing downstream of them: parsers, linters, formatter, the `em` and `xm` CLIs, and the resolution surface xm reads. Code generation from a model is an application concern, because every app maps the model onto its own conventions (kvissig's `Prefix + "State"` deciders and `Fixtures.*` test values; CritterStackHelpDesk's Wolverine handlers and Blazor surfaces). `Emlang.CodeGen` and the `Emlang.Generators` package were extracted to kvissig.se (`src/Emlang.Generators`, consumed by ProjectReference) and are no longer published; the three frozen game fixtures left with them. The Blazor generator for the helpdesk lives in that repository. The emlang RFCs are implemented in `src/emlang` (release emlang-v0.4.0) and specified as a delta in `emlang-dialect.md`; the kvissig migration is the first consumer.

@@ -5,9 +5,8 @@ using Xunit;
 namespace Emlang.Tests;
 
 /// <summary>
-/// EmFormatter port fidelity against the Go reference formatter (emlang v1.0.0):
-/// alias normalization goldens, section presence round-trip, key-style default,
-/// and idempotent round-trips over the frozen kvissig specs.
+/// EmFormatter: alias normalization goldens (the dialect's kinds included), the RFC 0005
+/// legacy-trigger rewrite, section presence round-trip, key-style default, idempotence.
 /// </summary>
 public class FormatterTests
 {
@@ -18,21 +17,25 @@ public class FormatterTests
             """
             slices:
               s:
-                - t: Foo
+                - a: Foo
                 - c: Bar
                 - e: Baz
                 - x: Err
                 - v: MyView
+                - s: MyState
+                - auto: Bot
             """);
 
         EmFormatter.Format(doc).Should().Be(
             "slices:\n" +
             "  s:\n" +
-            "    - trigger: Foo\n" +
+            "    - actor: Foo\n" +
             "    - command: Bar\n" +
             "    - event: Baz\n" +
             "    - exception: Err\n" +
-            "    - view: MyView\n");
+            "    - view: MyView\n" +
+            "    - state: MyState\n" +
+            "    - automation: Bot\n");
     }
 
     [Fact]
@@ -42,19 +45,19 @@ public class FormatterTests
             """
             slices:
               s:
-                - trg: Foo
                 - cmd: Bar
                 - evt: Baz
                 - err: Qux
+                - st: Quux
             """);
 
         EmFormatter.Format(doc).Should().Be(
             "slices:\n" +
             "  s:\n" +
-            "    - trigger: Foo\n" +
             "    - command: Bar\n" +
             "    - event: Baz\n" +
-            "    - exception: Qux\n");
+            "    - exception: Qux\n" +
+            "    - state: Quux\n");
     }
 
     [Fact]
@@ -64,21 +67,46 @@ public class FormatterTests
             """
             slices:
               s:
-                - trigger: Foo
+                - actor: Foo
                 - command: Bar
                 - event: Baz
                 - exception: Err
                 - view: MyView
+                - state: MyState
+                - automation: Bot
             """);
 
         EmFormatter.Format(doc, "short").Should().Be(
             "slices:\n" +
             "  s:\n" +
-            "    - t: Foo\n" +
+            "    - a: Foo\n" +
             "    - c: Bar\n" +
             "    - e: Baz\n" +
             "    - x: Err\n" +
-            "    - v: MyView\n");
+            "    - v: MyView\n" +
+            "    - s: MyState\n" +
+            "    - auto: Bot\n");
+    }
+
+    /// <summary>RFC emlang-0005's one-time migration: System or a gear emoji is an automation.</summary>
+    [Fact]
+    public void Legacy_triggers_are_rewritten_to_actor_or_automation()
+    {
+        var doc = EmAst.Parse(
+            """
+            slices:
+              s:
+                - t: 🧑‍🏫 host /Quiz catalog
+                - trigger: ⚙️ System / Reveal lot
+                - trg: system /Cron
+            """);
+
+        EmFormatter.Format(doc, "short").Should().Be(
+            "slices:\n" +
+            "  s:\n" +
+            "    - a: 🧑‍🏫 host/Quiz catalog\n" +
+            "    - auto: ⚙️ System/Reveal lot\n" +
+            "    - auto: system/Cron\n");
     }
 
     [Fact]
@@ -133,7 +161,7 @@ public class FormatterTests
             """
             slices:
               a:
-                - t: Foo
+                - a: Foo
             ---
             slices:
               b:
@@ -143,24 +171,10 @@ public class FormatterTests
         EmFormatter.Format(doc).Should().Be(
             "slices:\n" +
             "  a:\n" +
-            "    - trigger: Foo\n" +
+            "    - actor: Foo\n" +
             "---\n" +
             "slices:\n" +
             "  b:\n" +
             "    - command: Bar\n");
-    }
-
-    [Theory]
-    [InlineData("mer-eller-mindre.em.yaml")]
-    [InlineData("blindbudet.em.yaml")]
-    [InlineData("tank-till-tusen.em.yaml")]
-    public void Frozen_kvissig_specs_round_trip_idempotently(string specFile)
-    {
-        var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", specFile));
-
-        var formatted = EmFormatter.Format(EmAst.Parse(text));
-        var reformatted = EmFormatter.Format(EmAst.Parse(formatted));
-
-        reformatted.Should().Be(formatted);
     }
 }

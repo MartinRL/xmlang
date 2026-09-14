@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/emlang/Emlang/Emlang.csproj" />
-    <Project Path="src/emlang/Emlang.Generators/Emlang.Generators.csproj" />
     <Project Path="src/emlang/Emlang.Cli/Emlang.Cli.csproj" />
     <Project Path="src/xmlang/Xmlang/Xmlang.csproj" />
     <Project Path="src/xmlang/Xmlang.Cli/Xmlang.Cli.csproj" />

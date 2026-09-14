@@ -15,7 +15,7 @@ Console.OutputEncoding = Encoding.UTF8;
 Console.Out.NewLine = "\n";
 Console.Error.NewLine = "\n";
 
-const string SpecVersion = "1.0.0";
+const string SpecVersion = "1.1.0 dialect, forked from upstream 1.0.0";
 
 var (remaining, configPath) = ExtractConfigFlag(args);
 

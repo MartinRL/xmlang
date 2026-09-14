@@ -3,14 +3,14 @@ using Emlang;
 namespace Xmlang.Tests;
 
 /// <summary>Shared synthetic Event Model (emlang) fixture. A tiny two-slice shop:
-/// covers trigger roles, short element keys, a State-lane phase enum, a quoted
-/// "Todo / ..." view, a Screen-lane view, and a complex-typed field for self paths.</summary>
+/// covers initiator roles, short element keys, an `s:` decision model with a phase enum, a
+/// quoted "Todo / ..." view, a Screen-lane view, and a complex-typed field for self paths.</summary>
 internal static class Fixtures
 {
     public const string Em = """
         slices:
           "🧑 OpenShop":
-            - t: owner / Catalog
+            - a: owner / Catalog
             - c: OpenShop
               props:
                 shopId: Guid
@@ -18,7 +18,7 @@ internal static class Fixtures
             - e: Shop / ShopOpened
               props:
                 shopId: Guid
-            - v: State / Shop
+            - s: Shop
               props:
                 phase: ShopPhase (closed|open)
                 shopId: Guid

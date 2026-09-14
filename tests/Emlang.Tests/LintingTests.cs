@@ -5,179 +5,327 @@ using Xunit;
 namespace Emlang.Tests;
 
 /// <summary>
-/// EmAst + Linter port fidelity against the Go reference toolchain (emlang v1.0.0):
-/// the three frozen kvissig specs lint clean (verified against `emlang lint` output),
-/// and each of the three rules fires with the reference message and position.
+/// The dialect rule set, one smallest-failing document per rule: the three reference rules
+/// (Go linter parity, with the dialect's command-less slice exemption), RFC emlang-0002's
+/// decider rules, RFC emlang-0003/0005's initiator rules and RFC emlang-0004's appendix.
 /// </summary>
 public class LintingTests
 {
-    [Theory]
-    [InlineData("mer-eller-mindre.em.yaml", 11)]
-    [InlineData("blindbudet.em.yaml", 9)]
-    [InlineData("tank-till-tusen.em.yaml", 9)]
-    public void Frozen_kvissig_specs_match_the_Go_reference_lint(string specFile, int viewOnlySlices)
-    {
-        var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", specFile));
-        var document = EmAst.Parse(text);
+    private static IReadOnlyList<LintIssue> Lint(string yaml) => Linter.Lint(EmAst.Parse(yaml));
 
-        // Golden against `emlang lint` v1.0.0 (2026-08-30): N slice-missing-event warnings raw...
-        var raw = Linter.Lint(document);
-        raw.Should().HaveCount(viewOnlySlices);
-        raw.Should().OnlyContain(i => i.Rule == "slice-missing-event"
-                                      && i.Severity == LintSeverity.Warning);
+    private static IReadOnlyList<string> Rules(string yaml) => [.. Lint(yaml).Select(i => i.Rule)];
 
-        // ...and clean under kvissig's .emlang.yaml (ignore: slice-missing-event).
-        Linter.Lint(document, ["slice-missing-event"]).Should().BeEmpty();
-    }
+    /// <summary>A complete dialect document: one decider, folds by reference, actor identity, traced view.</summary>
+    private const string Clean = """
+        slices:
+          ✍️ Open lobby:
+            steps:
+              - a: 🧑‍🏫 host /Quiz catalog
+              - c: OpenLobby
+                props: { hostPlayerId: Guid }
+              - x: LobbyAlreadyOpen
+              - e: Game / LobbyOpened
+                props: { gameId: Guid, hostPlayerId: Guid }
+              - v: Roster
+                props: { names: "string[]" }
+            tests:
+              lobby opens:
+                given:
+                  - s: Game
+                when:
+                  - c: OpenLobby
+                    props: { hostPlayerId: martinId }
+                then:
+                  - e: Game / LobbyOpened
+                    props: { hostPlayerId: martinId }
+              roster lists the host:
+                given:
+                  - e: Game / LobbyOpened
+                    props: { hostPlayerId: martinId }
+                then:
+                  - v: Roster
+                    props: { names: [Martin] }
+              cannot open twice:
+                given:
+                  - s: Game
+                    props: { phase: lobby }
+                when:
+                  - c: OpenLobby
+                then:
+                  - x: LobbyAlreadyOpen
+              cannot open a started game:
+                given:
+                  - s: Game
+                    props: { phase: started }
+                when:
+                  - c: OpenLobby
+                then:
+                  - x: LobbyAlreadyOpen
+          ✍️ Start game:
+            steps:
+              - a: 🧑‍🏫 host /Game lobby
+              - c: StartGame
+              - x: GameNotFound
+              - e: Game / GameStarted
+                props: { gameId: Guid, hostPlayerId: Guid }
+            tests:
+              game starts from the lobby:
+                given:
+                  - s: Game
+                    props: { phase: lobby }
+                when:
+                  - c: StartGame
+                then:
+                  - e: Game / GameStarted
+              cannot start a game that is not open:
+                given:
+                  - s: Game
+                when:
+                  - c: StartGame
+                then:
+                  - x: GameNotFound
+              cannot start twice:
+                given:
+                  - s: Game
+                    props: { phase: started }
+                when:
+                  - c: StartGame
+                then:
+                  - x: GameNotFound
+          👀 Decision Model:
+            steps:
+              - s: Game
+                props:
+                  gameId: Guid
+                  phase: GamePhase (lobby|started)
+            tests:
+              an opened lobby:
+                given:
+                  - e: Game / LobbyOpened
+                then:
+                  - s: Game
+                    props: { phase: lobby }
+              a started game:
+                given:
+                  - e: Game / LobbyOpened
+                  - e: Game / GameStarted
+                then:
+                  - s: Game
+                    props: { phase: started }
+        """;
+
+    /// <summary>The GameStarted declaration in <see cref="Clean"/>, anchored by what follows it.</summary>
+    private const string GameStartedProps =
+        "        props: { gameId: Guid, hostPlayerId: Guid }\n    tests:\n      game starts";
+
+    [Fact]
+    public void A_conforming_dialect_document_lints_clean() =>
+        Lint(Clean).Should().BeEmpty();
+
+    // --- reference rules -----------------------------------------------------------
 
     [Fact]
     public void Command_without_event_warns_at_the_command_position()
     {
-        var doc = EmAst.Parse(
-            """
+        var issue = Lint("""
             slices:
               Broken:
                 - e: Game/Opened
                 - c: DoThing
-            """);
-
-        var issue = Linter.Lint(doc).Should().ContainSingle().Subject;
+            """).Should().ContainSingle().Subject;
 
         issue.Should().Be(new LintIssue(
-            "command-without-event",
-            "command should be followed by an event or exception",
+            "command-without-event", "command should be followed by an event or exception",
             4, 7, LintSeverity.Warning));
     }
 
     [Fact]
-    public void Orphan_exception_warns()
-    {
-        var doc = EmAst.Parse(
-            """
+    public void Orphan_exception_warns() =>
+        Rules("""
             slices:
               Broken:
                 - x: NotAllowed
                 - e: Game/Opened
-            """);
+            """).Should().Equal("orphan-exception");
 
-        Linter.Lint(doc).Should().ContainSingle().Which.Should().Be(new LintIssue(
-            "orphan-exception", "exception without preceding command", 3, 7, LintSeverity.Warning));
+    [Fact]
+    public void Slice_with_a_command_and_no_event_warns_at_position_zero()
+    {
+        var issue = Lint("""
+            slices:
+              Broken:
+                - c: DoThing
+                - x: Failed
+            """).Should().ContainSingle().Subject;
+
+        issue.Should().Be(new LintIssue(
+            "slice-missing-event", "slice \"Broken\" has no events", 0, 0, LintSeverity.Warning));
     }
 
     [Fact]
-    public void Slice_without_event_warns_at_position_zero()
-    {
-        var doc = EmAst.Parse(
-            """
+    public void Command_less_slices_are_exempt_from_slice_missing_event() =>
+        Lint("""
             slices:
               Catalog:
                 - v: Pack catalog
-            """);
+              Decision Model:
+                - s: Game
+            """).Should().BeEmpty();
 
-        Linter.Lint(doc).Should().ContainSingle().Which.Should().Be(new LintIssue(
-            "slice-missing-event", "slice \"Catalog\" has no events", 0, 0, LintSeverity.Warning));
+    [Fact]
+    public void Empty_slice_is_a_valid_placeholder() =>
+        Lint("slices:\n  Placeholder:\n").Should().BeEmpty();
+
+    // --- RFC emlang-0002: decider rules ------------------------------------------------
+
+    [Fact]
+    public void A_decision_test_giving_events_is_an_error()
+    {
+        var issues = Lint(Clean.Replace(
+            "        given:\n          - s: Game\n            props: { phase: lobby }\n        when:\n          - c: StartGame\n",
+            "        given:\n          - e: Game / LobbyOpened\n        when:\n          - c: StartGame\n"));
+
+        // The mutation also removes StartGame's lobby scenario, so the coverage warning fires too.
+        issues.Should().Contain(i => i.Rule == "em-given-not-one-state" && i.Severity == LintSeverity.Error);
     }
 
     [Fact]
-    public void Empty_slice_is_a_valid_placeholder()
-    {
-        var doc = EmAst.Parse("slices:\n  Placeholder:\n");
-
-        Linter.Lint(doc).Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Ignored_rules_are_suppressed()
-    {
-        var doc = EmAst.Parse(
-            """
+    public void A_fold_with_an_empty_given_is_an_error() =>
+        Rules("""
             slices:
-              Catalog:
-                - v: Pack catalog
-            """);
-
-        Linter.Lint(doc, ["slice-missing-event"]).Should().BeEmpty();
-    }
+              Decision Model:
+                steps:
+                  - s: Game
+                tests:
+                  nothing folds:
+                    then:
+                      - s: Game
+            """).Should().Equal("em-fold-shape");
 
     [Fact]
-    public void Swimlane_splits_at_the_first_slash_and_trims()
+    public void An_emitted_event_no_fold_reads_is_outside_the_query() =>
+        Rules(Clean.Replace(
+            "          - e: Game / LobbyOpened\n          - e: Game / GameStarted\n        then:\n",
+            "          - e: Game / LobbyOpened\n        then:\n")).Should().Equal("em-then-outside-query");
+
+    [Fact]
+    public void A_folded_event_must_declare_an_identity_prop_of_the_state() =>
+        Rules(Clean.Replace(GameStartedProps, "        props: { hostPlayerId: Guid }\n    tests:\n      game starts"))
+            .Should().Equal("em-fold-untagged-event");
+
+    [Fact]
+    public void A_given_state_with_props_needs_a_fold() =>
+        Rules("""
+            slices:
+              Decide:
+                steps:
+                  - c: Go
+                  - e: Game / Went
+                tests:
+                  goes:
+                    given:
+                      - s: Game
+                        props: { ready: true }
+                    when:
+                      - c: Go
+                    then:
+                      - e: Game / Went
+            """).Should().Equal("em-then-outside-query", "em-state-without-fold");
+
+    [Fact]
+    public void A_given_phase_no_fold_produces_is_an_error() =>
+        Rules(Clean.Replace("            props: { phase: started }\n        when:\n          - c: StartGame",
+                            "            props: { phase: ended }\n        when:\n          - c: StartGame"))
+            .Should().Contain("em-state-phase-without-fold");
+
+    [Fact]
+    public void A_view_given_without_its_state_is_a_todo_warning() =>
+        Rules("""
+            slices:
+              Run:
+                steps:
+                  - auto: ⚙️ System /Due payments
+                  - c: Run
+                  - e: Run / Ran
+                tests:
+                  runs:
+                    given:
+                      - v: Todo / Due payments
+                    when:
+                      - c: Run
+                    then:
+                      - e: Run / Ran
+            """).Should().Equal("em-given-not-one-state", "em-given-todo");
+
+    // --- RFC emlang-0003 / 0005: initiators ---------------------------------------------
+
+    [Fact]
+    public void An_initiator_after_the_command_warns_and_a_legacy_trigger_is_info()
     {
-        var doc = EmAst.Parse(
-            """
+        var issues = Lint("""
             slices:
               S:
-                - e: Game / LobbyOpened
+                - c: Go
+                - t: ⚙️ System /Somewhere
+                - e: Game / Went
             """);
 
-        var element = doc.SubDocs.Single().Slices.Single().Elements.Single();
-        element.Swimlane.Should().Be("Game");
-        element.Name.Should().Be("LobbyOpened");
+        issues.Select(i => (i.Rule, i.Severity)).Should().Equal(
+            ("em-initiator-after-command", LintSeverity.Warning),
+            ("em-legacy-trigger", LintSeverity.Info));
+    }
+
+    // --- RFC emlang-0004: appendix ---------------------------------------------------------
+
+    [Fact]
+    public void Every_command_needs_a_scenario_in_every_phase()
+    {
+        var issue = Lint(Clean.Replace(
+            "      cannot start twice:\n        given:\n          - s: Game\n            props: { phase: started }\n"
+            + "        when:\n          - c: StartGame\n        then:\n          - x: GameNotFound\n", ""))
+            .Should().ContainSingle().Subject;
+
+        issue.Rule.Should().Be("em-phase-transition-uncovered");
+        issue.Message.Should().Be("state 'Game': command 'StartGame' has no scenario in phase 'started'");
     }
 
     [Fact]
-    public void Multi_document_specs_merge_slice_counts_by_name()
+    public void An_event_in_an_actor_slice_carries_exactly_one_actor_prop()
     {
-        var doc = EmAst.Parse(
-            """
-            slices:
-              A:
-                - e: E1
-            ---
-            slices:
-              A:
-                - e: E2
-              B:
-                - e: E3
-            """);
-
-        doc.SubDocs.Should().HaveCount(2);
-        doc.SliceCount.Should().Be(2, "the Go parser merges slices by name across documents");
+        Rules(Clean.Replace(GameStartedProps, "        props: { gameId: Guid }\n    tests:\n      game starts"))
+            .Should().Equal("em-actor-identity");
+        Rules(Clean.Replace(GameStartedProps, "        props: { gameId: Guid, hostPlayerId: Guid, startedBy: Guid }\n    tests:\n      game starts"))
+            .Should().Equal("em-actor-identity");
     }
 
     [Fact]
-    public void Extended_slice_form_carries_steps_and_tests()
-    {
-        var doc = EmAst.Parse(
-            """
+    public void Automation_slices_are_exempt_from_actor_identity() =>
+        Lint("""
             slices:
-              Open:
+              Score:
                 steps:
-                  - c: Open
-                  - e: Game/Opened
-                tests:
-                  can open:
-                    when:
-                      - c: Open
-                        props:
-                          name: Martin
-                    then:
-                      - e: Game/Opened
-            """);
+                  - auto: ⚙️ System /Scoreboard
+                  - c: Score
+                  - e: Game / Scored
+                    props: { gameId: Guid, playerId: Guid }
+            """).Should().BeEmpty();
 
-        var slice = doc.SubDocs.Single().Slices.Single();
-        slice.Elements.Should().HaveCount(2);
-        var test = slice.Tests.Single();
-        test.Name.Should().Be("can open");
-        test.When.Single().Props.Single().Should().Be(
-            new KeyValuePair<string, object?>("name", "Martin"));
-        test.Then.Single().Type.Should().Be(EmElementType.Event);
-    }
+    [Fact]
+    public void A_view_prop_no_projection_test_asserts_is_untraced() =>
+        Rules(Clean.Replace("props: { names: [Martin] }", "props: {}")).Should().Equal("em-view-prop-untraced");
 
     [Theory]
-    [InlineData("slices: [x]\n", "slices must be a mapping at line 1")]
-    [InlineData("nope:\n  A:\n", "unknown top-level key \"nope\" at line 1")]
-    [InlineData("slices:\n  A: []\n", "slice \"A\": slice must have at least one element at line 2")]
-    [InlineData("slices:\n  A:\n    - c: X\n      e: Y\n", "slice \"A\": element has multiple type keys at line 3")]
-    [InlineData("slices:\n  A:\n    - c: Bad/\n", "slice \"A\": element name must not end with '/' at line 3")]
-    [InlineData("slices:\n  A:\n    - k: X\n", "slice \"A\": unknown key \"k\" at line 3")]
-    [InlineData("slices:\n  A:\n    tests:\n", "slice \"A\": extended slice must have 'steps' at line 3")]
-    [InlineData(
-        "slices:\n  A:\n    steps:\n      - e: E\n    tests:\n      t:\n        when:\n          - e: E\n",
-        "slice \"A\": tests: test \"t\": when: event not allowed at line 8")]
-    public void Structural_violations_use_the_reference_parsers_wording(string yaml, string expected)
-    {
-        var act = () => EmAst.Parse(yaml);
+    [InlineData("- c: Go\n        props: { asOf: DateOnly (@param) }", 1)]
+    [InlineData("- v: Due\n        props: { asOf: DateOnly (@param) }", 0)]
+    [InlineData("- v: Due\n        props: { asOf: DateOnly @param }", 1)]
+    [InlineData("- v: Due\n        props: { mode: Mode (@param) (dry|live) }", 1)]
+    [InlineData("- v: Due\n        props: { mode: Mode (dry|live) (@param) }", 0)]
+    public void The_param_note_is_a_last_parenthesized_note_on_a_view(string element, int malformed) =>
+        Rules($"slices:\n  S:\n    - e: Run / Ran\n    {element.Replace("\n        ", "\n      ")}\n")
+            .Count(r => r == "em-param-note-malformed").Should().Be(malformed);
 
-        act.Should().Throw<FormatException>().WithMessage(expected);
-    }
+    [Fact]
+    public void Ignored_rules_are_dropped() =>
+        Linter.Lint(EmAst.Parse("slices:\n  S:\n    - t: Foo\n    - e: Game / Went\n"), ["em-legacy-trigger"])
+            .Should().BeEmpty();
 }

@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- netstandard2.0 is the analyzer-host requirement: Emlang.Generators loads this dll
-         inside the compiler process. net10.0 is the modern surface for runtime consumers
-         (Xmlang, the future Emlang.Cli). -->
+    <!-- netstandard2.0 so an app's own Roslyn source generator can load this dll inside the
+         compiler process (generators are per app, never in this repo); net10.0 for runtime
+         consumers (Xmlang, Emlang.Cli). -->
     <TargetFramework></TargetFramework>
     <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
     <PackageId>Emlang</PackageId>
-    <Description>.NET implementation of the emlang spec (Event Model DSL): EmParser lifts the c:/e:/x:/v: reference surface from a spec, Emlang.CodeGen parses the full record surface and `tests:` GWT cases and emits C# records, closed unions, Decider skeletons and xUnit spec tests.</Description>
-    <PackageTags>emlang;event-modeling;event-sourcing;dsl;yaml;codegen</PackageTags>
+    <Description>.NET implementation of the emlang decider dialect (Event Model DSL, forked from emlang spec v1.0.0): EmAst parses a spec with line positions, Linter applies the dialect rule set, EmFormatter renders the canonical form, and EmParser lifts the c:/e:/x:/v:/s: reference surface xmlang resolves against.</Description>
+    <PackageTags>emlang;event-modeling;event-sourcing;dsl;yaml;lint</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>

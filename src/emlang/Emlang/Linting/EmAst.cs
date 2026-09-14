@@ -4,13 +4,14 @@ using YamlDotNet.RepresentationModel;
 namespace Emlang.Linting;
 
 /// <summary>
-/// Line/column-aware AST over emlang YAML, a faithful port of the Go reference parser
-/// (github.com/emlang-project/emlang internal/parser + internal/ast): slices in document
-/// order, per-YAML-document sub-docs (--- separated), swimlane split, GWT test sections
-/// with type validation. This is the surface `em lint`/`em parse` operate on; EmParser
+/// Line/column-aware AST over emlang YAML, ported from the Go reference parser
+/// (github.com/emlang-project/emlang internal/parser + internal/ast) and extended with the
+/// dialect's kinds: `s:` state (RFC emlang-0002) and `a:`/`auto:` initiators (RFC emlang-0005).
+/// Slices in document order, per-YAML-document sub-docs (--- separated), swimlane split at
+/// the first '/', GWT test sections with type validation. This is the surface `em lint`/`em parse` operate on; EmParser
 /// and SpecModel stay the resolution/codegen surfaces.
 /// </summary>
-public enum EmElementType { Trigger, Command, Event, Exception, View }
+public enum EmElementType { Trigger, Command, Event, Exception, View, State, Actor, Automation }
 
 public static class EmElementTypes
 {
@@ -21,7 +22,40 @@ public static class EmElementTypes
         EmElementType.Event => "event",
         EmElementType.Exception => "exception",
         EmElementType.View => "view",
+        EmElementType.State => "state",
+        EmElementType.Actor => "actor",
+        EmElementType.Automation => "automation",
         _ => "unknown",
+    };
+
+    /// <summary>Initiators (RFC emlang-0005): actors and automations, plus the legacy trigger.</summary>
+    public static bool IsInitiator(this EmElementType type) =>
+        type is EmElementType.Trigger or EmElementType.Actor or EmElementType.Automation;
+}
+
+/// <summary>Name conventions shared by the linter, the formatter and xmlang (RFC emlang-0004
+/// role normalization; RFC emlang-0005 legacy-trigger classification).</summary>
+public static class EmNames
+{
+    /// <summary>Strip leading non-letter/digit characters (emoji, joiners, whitespace), trim, lowercase.</summary>
+    public static string NormalizeRole(string swimlane)
+    {
+        var i = 0;
+        while (i < swimlane.Length && !char.IsLetterOrDigit(swimlane[i]))
+            i++;
+        return swimlane.Substring(i).Trim().ToLowerInvariant();
+    }
+
+    /// <summary>The `em fmt` migration heuristic for a legacy `t:`: System, or a gear emoji, is an automation.</summary>
+    public static bool IsAutomationHeuristic(string swimlane) =>
+        NormalizeRole(swimlane) == "system" || swimlane.TrimStart().StartsWith("⚙", StringComparison.Ordinal);
+
+    /// <summary>An initiator's kind, reading legacy triggers through the heuristic.</summary>
+    public static bool IsAutomation(EmElement initiator) => initiator.Type switch
+    {
+        EmElementType.Automation => true,
+        EmElementType.Actor => false,
+        _ => IsAutomationHeuristic(initiator.Swimlane),
     };
 }
 
@@ -79,6 +113,13 @@ public static class EmAst
         ["exception"] = EmElementType.Exception,
         ["v"] = EmElementType.View,
         ["view"] = EmElementType.View,
+        ["s"] = EmElementType.State,
+        ["st"] = EmElementType.State,
+        ["state"] = EmElementType.State,
+        ["a"] = EmElementType.Actor,
+        ["actor"] = EmElementType.Actor,
+        ["auto"] = EmElementType.Automation,
+        ["automation"] = EmElementType.Automation,
     };
 
     /// <summary>Parses emlang YAML; throws <see cref="FormatException"/> with the Go
@@ -221,10 +262,11 @@ public static class EmAst
         return tests;
     }
 
-    private static readonly EmElementType[] AllowedGiven = [EmElementType.Event, EmElementType.View];
+    private static readonly EmElementType[] AllowedGiven =
+        [EmElementType.Event, EmElementType.View, EmElementType.State];
     private static readonly EmElementType[] AllowedWhen = [EmElementType.Command];
     private static readonly EmElementType[] AllowedThen =
-        [EmElementType.Event, EmElementType.View, EmElementType.Exception];
+        [EmElementType.Event, EmElementType.View, EmElementType.Exception, EmElementType.State];
 
     private static EmTest ParseTest(string name, YamlNode node)
     {

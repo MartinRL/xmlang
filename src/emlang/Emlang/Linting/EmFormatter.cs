@@ -4,10 +4,11 @@ using System.Text;
 namespace Emlang.Linting;
 
 /// <summary>
-/// Canonical emlang YAML formatter, a faithful port of the Go reference
-/// internal/formatter: renders from the AST (comments are dropped, exactly like the
-/// reference), 2-space indent, slices in document order, props and test names sorted,
-/// element type keys normalized to "long" (trigger/command/...) or "short" (t/c/...).
+/// Canonical emlang YAML formatter, ported from the Go reference internal/formatter:
+/// renders from the AST (comments are dropped, exactly like the reference), 2-space indent,
+/// slices in document order, props and test names sorted, element type keys normalized to
+/// "long" (command/event/...) or "short" (c/e/...). Dialect: legacy `t:` triggers are
+/// rewritten to actor/automation by RFC emlang-0005's stated heuristic.
 /// </summary>
 public static class EmFormatter
 {
@@ -80,7 +81,7 @@ public static class EmFormatter
     private static void WriteElement(StringBuilder buf, int level, EmElement element, string style)
     {
         var name = element.Swimlane.Length == 0 ? element.Name : $"{element.Swimlane}/{element.Name}";
-        Line(buf, level, $"- {TypeKey(element.Type, style)}: {name}");
+        Line(buf, level, $"- {TypeKey(Migrated(element), style)}: {name}");
 
         if (element.Props.Count == 0)
             return;
@@ -88,6 +89,13 @@ public static class EmFormatter
         foreach (var prop in element.Props.OrderBy(p => p.Key, StringComparer.Ordinal))
             Line(buf, level + 2, $"{prop.Key}: {FormatValue(prop.Value)}");
     }
+
+    // RFC emlang-0005: a legacy trigger is rewritten once, as an automation when its
+    // swimlane is System or carries the gear emoji, otherwise as an actor.
+    private static EmElementType Migrated(EmElement element) =>
+        element.Type != EmElementType.Trigger ? element.Type
+            : EmNames.IsAutomationHeuristic(element.Swimlane) ? EmElementType.Automation
+            : EmElementType.Actor;
 
     private static string TypeKey(EmElementType type, string style) =>
         style == "short"
@@ -98,6 +106,9 @@ public static class EmFormatter
                 EmElementType.Event => "e",
                 EmElementType.Exception => "x",
                 EmElementType.View => "v",
+                EmElementType.State => "s",
+                EmElementType.Actor => "a",
+                EmElementType.Automation => "auto",
                 _ => "unknown",
             }
             : type.Display();

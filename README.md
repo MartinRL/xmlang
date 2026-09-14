@@ -2,13 +2,14 @@
 
 xmlang is a YAML-based DSL for **Experience Models**: the sibling dialect to emlang (Event Models as YAML), recording the UX judgments an Event Model deliberately omits — personas, surface composition, field salience, journeys, labels, design tokens — **as data, never as geometry**. The Experience Model depends on the Event Model strictly one-way, and every reference is lintable.
 
-The canonical specification lives here: [xmlang-spec.md](xmlang-spec.md). This repository is also the reference implementation: a parser, an Event Model resolution surface, and a linter implementing the spec's full rule set.
+The canonical specification lives here: [xmlang-spec.md](xmlang-spec.md); the emlang dialect it depends on is specified as a delta against upstream in [emlang-dialect.md](emlang-dialect.md). This repository is also the reference implementation: a parser, an Event Model resolution surface, and a linter implementing the spec's full rule set.
 
 The repository also hosts the .NET implementation of [emlang](https://github.com/emlang-project/emlang) itself — xmlang cannot live without it. The emlang here is an **opinionated dialect**: an Event Model DSL for **Vertical Slice Architecture × Decider × Dynamic Consistency Boundaries** (see [Stance](#stance)).
 
-- **Emlang** — the em parser (`EmParser`), the codegen model and emitters (`Emlang.CodeGen`), and the line-aware lint surface (`Emlang.Linting`).
+- **Emlang** — the em parser (`EmParser`, the reference surface xm resolves against) and the line-aware AST, linter and formatter (`Emlang.Linting`).
 - **Emlang.Cli** — `em`, the .NET clone of the reference Go CLI (`dotnet tool install -g Emlang.Cli`). Commands so far: `em parse`, `em lint` and `em fmt` (`-w`, `--keys short|long`) with the reference toolchain's rule set and output format, stdin via `-`, plus `version`/`help`.
-- **Emlang.Generators** — Roslyn source generators: point an `AdditionalFiles` item at a `*.em.yaml` spec with `EmlangPrefix` metadata and the Commands/Events/Errors records, closed unions and Decider switch skeletons are emitted into the compilation; projects with `EmlangEmit=tests` get xUnit spec tests instead. The emitted unions require `LangVersion` preview (C# `union` types) in the consuming project.
+
+This repository is the two DSLs and nothing downstream of them. Code generation from a model is an application concern: each app carries its own source generators against its own conventions (kvissig.se has one for its deciders; CritterStackHelpDesk will have one for its Blazor surfaces). `Emlang.Generators` was extracted to kvissig.se on 2026-09-14 and is no longer published.
 
 The emlang packages version and release independently (tags `emlang-v*`) from the xmlang packages (tags `xmlang-v*`).
 
@@ -56,7 +57,7 @@ var findings = XmLinter.Lint(xm, em);
 
 ## Versioning
 
-The Xmlang package minor version tracks the specification version (`Xmlang 0.5.x` implements spec v0.5); the patch component is free for implementation fixes. The Emlang packages carry their own SemVer and implement the emlang spec v1.0.0.
+The Xmlang package minor version tracks the specification version (`Xmlang 0.5.x` implements spec v0.5); the patch component is free for implementation fixes. The Emlang packages carry their own SemVer (`emlang-v*` tags) and implement the decider dialect in [emlang-dialect.md](emlang-dialect.md), forked from upstream emlang spec v1.0.0.
 
 ## Provenance
 

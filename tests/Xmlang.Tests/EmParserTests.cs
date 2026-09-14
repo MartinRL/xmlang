@@ -30,16 +30,17 @@ public class EmParserTests
     }
 
     [Fact]
-    public void LaneIsThePrefixBeforeTheLastSlash()
+    public void LaneIsThePrefixBeforeTheFirstSlash()
     {
+        // RFC emlang-0003: the swimlane is the text before the first '/', as in the Go reference.
         var em = EmParser.Parse("""
             slices:
               S:
                 - e: Shop / Sub / ItemAdded
             """);
         var element = em.Elements.Single();
-        element.Lane.Should().Be("Shop / Sub");
-        element.Name.Should().Be("ItemAdded");
+        element.Lane.Should().Be("Shop");
+        element.Name.Should().Be("Sub / ItemAdded");
     }
 
     [Fact]
@@ -86,9 +87,61 @@ public class EmParserTests
     }
 
     [Fact]
-    public void PhaseValuesComeFromTheStateLanePhaseEnumAnnotation()
+    public void PhaseValuesComeFromTheStateElementsPhaseEnumAnnotationPerDecisionModel()
     {
+        Fixtures.ParsedEm.Phases.Should().ContainKey("Shop").WhoseValue.Should().Equal("closed", "open");
         Fixtures.ParsedEm.PhaseValues.Should().Equal("closed", "open");
+    }
+
+    [Fact]
+    public void InitiatorsCarryRoleOriginAndKind()
+    {
+        var em = EmParser.Parse("""
+            slices:
+              Pay:
+                - a: 🧾 Clerk /Invoice list
+                - t: ⚙️ System / Payment run
+                - c: Pay
+                - e: Invoice / Paid
+            """);
+        em.Initiators.Should().Equal(
+            new EmInitiator("Pay", "🧾 Clerk", "Invoice list", false),
+            new EmInitiator("Pay", "⚙️ System", "Payment run", true));
+        em.TriggerRoles.Should().Equal("clerk", "system");
+        em.InitiatorsOf("Pay").Should().HaveCount(2);
+        em.Chains.Single().TerminalView.Should().BeNull();
+    }
+
+    [Fact]
+    public void ScenariosReadTheDecisionTests()
+    {
+        var em = EmParser.Parse("""
+            slices:
+              Start:
+                steps:
+                  - c: Start
+                  - x: NotOpen
+                  - e: Game / Started
+                tests:
+                  starts:
+                    given:
+                      - s: Game
+                        props: { phase: lobby }
+                    when:
+                      - c: Start
+                    then:
+                      - e: Game / Started
+                  rejects:
+                    given:
+                      - s: Game
+                    when:
+                      - c: Start
+                    then:
+                      - x: NotOpen
+            """);
+        em.Scenarios.Should().Equal(
+            new EmScenario("Start", "Start", "Game", "lobby", true),
+            new EmScenario("Start", "Start", "Game", null, false));
     }
 
     [Fact]
@@ -106,8 +159,8 @@ public class EmParserTests
     {
         var em = Fixtures.ParsedEm;
         em.FindView("Storefront")!.Name.Should().Be("Storefront");
-        em.FindView("State / Shop")!.Lane.Should().Be("State");
-        em.FindView("State /  Shop ")!.Name.Should().Be("Shop");
+        em.FindState("Shop")!.Kind.Should().Be('s');
+        em.FindState("State /  Shop ")!.Name.Should().Be("Shop");
         em.FindView("Todo / Outstanding bids")!.Fields.Should().Equal(new EmField("bids", "Bid[]"));
         em.FindView("Ghost").Should().BeNull();
         em.FindCommand("OpenShop")!.Kind.Should().Be('c');

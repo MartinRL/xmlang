@@ -7,11 +7,13 @@
       Fields: [
         {
           Name: shopId,
-          Annotation: Guid
+          Annotation: Guid,
+          IsParam: false
         },
         {
           Name: name,
-          Annotation: string
+          Annotation: string,
+          IsParam: false
         }
       ]
     },
@@ -22,22 +24,25 @@
       Fields: [
         {
           Name: shopId,
-          Annotation: Guid
+          Annotation: Guid,
+          IsParam: false
         }
       ]
     },
     {
-      Kind: v,
-      Lane: State,
+      Kind: s,
+      Lane: ,
       Name: Shop,
       Fields: [
         {
           Name: phase,
-          Annotation: ShopPhase (closed|open)
+          Annotation: ShopPhase (closed|open),
+          IsParam: false
         },
         {
           Name: shopId,
-          Annotation: Guid
+          Annotation: Guid,
+          IsParam: false
         }
       ]
     },
@@ -48,11 +53,13 @@
       Fields: [
         {
           Name: itemId,
-          Annotation: Guid
+          Annotation: Guid,
+          IsParam: false
         },
         {
           Name: quantity,
-          Annotation: int
+          Annotation: int,
+          IsParam: false
         }
       ]
     },
@@ -68,7 +75,8 @@
       Fields: [
         {
           Name: itemId,
-          Annotation: Guid
+          Annotation: Guid,
+          IsParam: false
         }
       ]
     },
@@ -79,15 +87,18 @@
       Fields: [
         {
           Name: items,
-          Annotation: Item[]
+          Annotation: Item[],
+          IsParam: false
         },
         {
           Name: total,
-          Annotation: decimal
+          Annotation: decimal,
+          IsParam: false
         },
         {
           Name: note,
-          Annotation: string
+          Annotation: string,
+          IsParam: false
         }
       ]
     },
@@ -98,7 +109,8 @@
       Fields: [
         {
           Name: bids,
-          Annotation: Bid[]
+          Annotation: Bid[],
+          IsParam: false
         }
       ]
     },
@@ -109,7 +121,8 @@
       Fields: [
         {
           Name: summary,
-          Annotation: string
+          Annotation: string,
+          IsParam: false
         }
       ]
     }
@@ -121,6 +134,216 @@
   TriggerRoles: [
     owner,
     customer
+  ],
+  Phases: {
+    Shop: [
+      closed,
+      open
+    ]
+  },
+  Initiators: [
+    {
+      Slice: 🧑 OpenShop,
+      Role: owner,
+      Origin: Catalog,
+      IsAutomation: false,
+      NormalizedRole: owner
+    },
+    {
+      Slice: 🛒 BrowseShop,
+      Role: customer,
+      Origin: Storefront,
+      IsAutomation: false,
+      NormalizedRole: customer
+    }
+  ],
+  Chains: [
+    {
+      Slice: 🧑 OpenShop,
+      Steps: [
+        {
+          Kind: c,
+          Lane: ,
+          Name: OpenShop,
+          Fields: [
+            {
+              Name: shopId,
+              Annotation: Guid,
+              IsParam: false
+            },
+            {
+              Name: name,
+              Annotation: string,
+              IsParam: false
+            }
+          ]
+        },
+        {
+          Kind: e,
+          Lane: Shop,
+          Name: ShopOpened,
+          Fields: [
+            {
+              Name: shopId,
+              Annotation: Guid,
+              IsParam: false
+            }
+          ]
+        },
+        {
+          Kind: s,
+          Lane: ,
+          Name: Shop,
+          Fields: [
+            {
+              Name: phase,
+              Annotation: ShopPhase (closed|open),
+              IsParam: false
+            },
+            {
+              Name: shopId,
+              Annotation: Guid,
+              IsParam: false
+            }
+          ]
+        }
+      ],
+      Commands: [
+        {
+          Kind: c,
+          Lane: ,
+          Name: OpenShop,
+          Fields: [
+            {
+              Name: shopId,
+              Annotation: Guid,
+              IsParam: false
+            },
+            {
+              Name: name,
+              Annotation: string,
+              IsParam: false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      Slice: 🛒 BrowseShop,
+      Steps: [
+        {
+          Kind: c,
+          Lane: ,
+          Name: AddItem,
+          Fields: [
+            {
+              Name: itemId,
+              Annotation: Guid,
+              IsParam: false
+            },
+            {
+              Name: quantity,
+              Annotation: int,
+              IsParam: false
+            }
+          ]
+        },
+        {
+          Kind: x,
+          Lane: ,
+          Name: ShopClosed
+        },
+        {
+          Kind: e,
+          Lane: Shop,
+          Name: ItemAdded,
+          Fields: [
+            {
+              Name: itemId,
+              Annotation: Guid,
+              IsParam: false
+            }
+          ]
+        },
+        {
+          Kind: v,
+          Lane: ,
+          Name: Storefront,
+          Fields: [
+            {
+              Name: items,
+              Annotation: Item[],
+              IsParam: false
+            },
+            {
+              Name: total,
+              Annotation: decimal,
+              IsParam: false
+            },
+            {
+              Name: note,
+              Annotation: string,
+              IsParam: false
+            }
+          ]
+        },
+        {
+          Kind: v,
+          Lane: Todo,
+          Name: Outstanding bids,
+          Fields: [
+            {
+              Name: bids,
+              Annotation: Bid[],
+              IsParam: false
+            }
+          ]
+        },
+        {
+          Kind: v,
+          Lane: Screen,
+          Name: Results,
+          Fields: [
+            {
+              Name: summary,
+              Annotation: string,
+              IsParam: false
+            }
+          ]
+        }
+      ],
+      Commands: [
+        {
+          Kind: c,
+          Lane: ,
+          Name: AddItem,
+          Fields: [
+            {
+              Name: itemId,
+              Annotation: Guid,
+              IsParam: false
+            },
+            {
+              Name: quantity,
+              Annotation: int,
+              IsParam: false
+            }
+          ]
+        }
+      ],
+      TerminalView: {
+        Kind: v,
+        Lane: Screen,
+        Name: Results,
+        Fields: [
+          {
+            Name: summary,
+            Annotation: string,
+            IsParam: false
+          }
+        ]
+      }
+    }
   ],
   PhaseValues: [
     closed,

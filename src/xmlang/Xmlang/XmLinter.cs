@@ -51,7 +51,7 @@ public static class XmLinter
                 $"surface '{surface.Name}' composes no view"));
         foreach (var item in surface.Compose)
             LintComposeItem(surface.Name, item, em, findings);
-        if (em.Elements.Any(e => e.Kind == 'v' && (e.Name == surface.Name || $"{e.Lane} / {e.Name}" == surface.Name)))
+        if (em.Elements.Any(e => e.Kind is 'v' or 's' && (e.Name == surface.Name || $"{e.Lane} / {e.Name}" == surface.Name || EmSpec.Split(surface.Name).Name == e.Name && e.Kind == 's')))
             findings.Add(new("xm-surface-shadows-view", XmSeverity.Warning,
                 $"surface '{surface.Name}' shares its name with an Event Model view"));
     }
@@ -67,7 +67,9 @@ public static class XmLinter
 
     private static void LintViewItem(string surface, XmViewItem item, EmSpec em, List<XmFinding> findings)
     {
-        if (em.FindView(item.Name) is not { } view)
+        // A composed `v:` names a read model, or a decision model by name (its phase is what a
+        // surface shows of it; RFC xmlang-0002 maps `s:` to a status badge).
+        if ((em.FindView(item.Name) ?? em.FindState(item.Name)) is not { } view)
         {
             findings.Add(new("xm-dangling-ref", XmSeverity.Error,
                 $"surface '{surface}' composes unknown view '{item.Name}'"));
@@ -146,7 +148,7 @@ public static class XmLinter
     {
         if (em.FindCommand(element) is { } command)
             return command.Fields.Select(f => f.Name).ToHashSet();
-        if (em.FindView(element) is { } view)
+        if ((em.FindView(element) ?? em.FindState(element)) is { } view)
             return view.Fields.Select(f => f.Name).ToHashSet();
         var known = xm.Surfaces.Any(s => s.Name == element)
             || xm.Journeys.Any(j => j.Name == element)

@@ -5,6 +5,7 @@
       For: [
         Accountant
       ],
+      During: {},
       Compose: [
         {
           View: {
@@ -39,13 +40,21 @@
         {
           Command: {
             Name: PayInvoice,
-            Prominence: primary
+            Prominence: primary,
+            Then: Dashboard
           }
         },
         {
           Command: {
             Name: ExportCsv,
             Prominence: overflow
+          }
+        },
+        {
+          Command: {
+            Name: VoidInvoice,
+            Prominence: overflow,
+            Confirm: true
           }
         }
       ]

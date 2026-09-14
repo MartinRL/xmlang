@@ -1,5 +1,5 @@
 ﻿warning xm-version-missing: document carries no 'xmlang' version key
-warning xm-unknown-role: persona 'Clerk' role 'cashier' matches no swimlane in the Event Model
+warning xm-unknown-role: persona 'Clerk' role 'cashier' matches no initiator role in the Event Model
 error   xm-unknown-persona: surface 'Storefront' is for undeclared persona 'Ghost'
 error   xm-dangling-ref: surface 'Storefront': view 'Storefront' has no field 'nope'
 error   xm-self-field-missing: surface 'Storefront': self 'missing' resolves to no field on 'Storefront'
@@ -8,7 +8,8 @@ warning xm-surface-shadows-view: surface 'Storefront' shares its name with an Ev
 error   xm-unknown-phase: surface 'Checkout' during 'paused' is not a declared phase value
 error   xm-surface-without-view: surface 'Checkout' composes no view
 error   xm-dangling-ref: surface 'Checkout' composes unknown command 'Checkout'
-warning xm-phase-uncovered: phase 'closed' is claimed by no surface
+warning xm-phase-uncovered: phase 'closed' of 'Shop' is claimed by no surface
+warning xm-origin-mismatch: initiator 'customer /Storefront' names surface 'Storefront', which admits no persona with role 'customer'
 error   xm-dangling-ref: journey 'Buy' walks unknown slice 'MissingSlice'
 error   xm-orphan-label: label 'Ghosty' (en) resolves to no element
-8 error(s), 4 warning(s), 1 info
+8 error(s), 5 warning(s), 1 info

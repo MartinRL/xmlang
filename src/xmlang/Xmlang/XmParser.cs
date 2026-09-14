@@ -6,9 +6,9 @@ using YamlDotNet.RepresentationModel;
 namespace Xmlang;
 
 /// <summary>
-/// Parses an xmlang v0.2 document into XmSpec. RepresentationModel, same style as
-/// Emlang.CodeGen/SpecModel.cs — quoted "Todo / Outstanding bids" keys survive verbatim.
-/// Structural only: unknown keys are ignored here; resolution errors are XmLinter's job.
+/// Parses an xmlang v0.6 document into XmSpec. RepresentationModel, same style as the emlang
+/// parsers — quoted "Todo / Outstanding bids" keys survive verbatim. Structural only: unknown
+/// keys are ignored here; resolution errors are XmLinter's job.
 /// </summary>
 public static class XmParser
 {
@@ -47,15 +47,29 @@ public static class XmParser
     private static XmSurface Surface(string name, YamlMappingNode def) => new(
         name,
         StringList(def, "for"),
-        StringList(def, "during"),
+        During(Child(def, "during")),
         Child(def, "compose") is YamlSequenceNode compose
             ? [.. compose.Children.OfType<YamlMappingNode>().Select(ComposeItem)]
             : []);
 
+    /// <summary>List form `[lobby, started]` or map form `{ Game: [lobby, started] }` (RFC xmlang-0001 §5).</summary>
+    private static XmDuring During(YamlNode? node) => node switch
+    {
+        YamlSequenceNode list => new XmDuring(Strings(list), XmDuring.All.PerModel),
+        YamlMappingNode map => new XmDuring([], map.Children.ToDictionary(
+            e => Name(e.Key),
+            e => (IReadOnlyList<string>)(e.Value is YamlSequenceNode values ? Strings(values) : []))),
+        _ => XmDuring.All,
+    };
+
     private static XmComposeItem ComposeItem(YamlMappingNode item) =>
         Scalar(item, "v") is { } view
             ? new XmComposeItem(ViewItem(view, item), null)
-            : new XmComposeItem(null, new XmCommandItem(Scalar(item, "c") ?? "", Scalar(item, "prominence") ?? "primary"));
+            : new XmComposeItem(null, new XmCommandItem(
+                Scalar(item, "c") ?? "",
+                Scalar(item, "prominence") ?? "primary",
+                Scalar(item, "confirm"),
+                Scalar(item, "then")));
 
     private static XmViewItem ViewItem(string view, YamlMappingNode item)
     {
@@ -92,7 +106,12 @@ public static class XmParser
             Scalar(map, "$self"),
             Scalar(map, "$empty"),
             map.Children.Where(f => !Name(f.Key).StartsWith('$'))
-                .ToDictionary(f => Name(f.Key), f => LabelEntry(f.Value))),
+                .ToDictionary(f => Name(f.Key), f => LabelEntry(f.Value)),
+            Scalar(map, "$confirm"),
+            Child(map, "$values") is YamlMappingNode values
+                ? values.Children.ToDictionary(v => Name(v.Key), v => (v.Value as YamlScalarNode)?.Value ?? "")
+                : null,
+            IsMap: true),
         _ => new(null, null, NoFields),
     };
 

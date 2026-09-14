@@ -2,9 +2,11 @@
   Surfaces: [
     {
       Name: Bidding,
-      During: [
-        started
-      ],
+      During: {
+        Bare: [
+          started
+        ]
+      },
       Compose: [
         {
           View: {
@@ -24,9 +26,11 @@
       For: [
         Host
       ],
-      During: [
-        lobby
-      ],
+      During: {
+        Bare: [
+          lobby
+        ]
+      },
       Compose: [
         {
           View: {
@@ -37,6 +41,23 @@
           Command: {
             Name: StartAuction,
             Prominence: primary
+          }
+        }
+      ]
+    },
+    {
+      Name: Standings,
+      During: {
+        PerModel: {
+          Game: [
+            ended
+          ]
+        }
+      },
+      Compose: [
+        {
+          View: {
+            Name: Scoreboard
           }
         }
       ]

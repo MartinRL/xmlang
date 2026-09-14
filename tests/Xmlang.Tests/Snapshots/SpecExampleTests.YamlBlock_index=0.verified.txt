@@ -12,6 +12,7 @@
   Surfaces: [
     {
       Name: Dashboard,
+      During: {},
       Compose: [
         {
           View: {

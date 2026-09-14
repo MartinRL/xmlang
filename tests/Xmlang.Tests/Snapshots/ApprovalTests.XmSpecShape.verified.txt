@@ -19,9 +19,11 @@
       For: [
         Customer
       ],
-      During: [
-        open
-      ],
+      During: {
+        Bare: [
+          open
+        ]
+      },
       Compose: [
         {
           View: {
@@ -49,6 +51,7 @@
       For: [
         Owner
       ],
+      During: {},
       Compose: [
         {
           View: {
@@ -80,7 +83,8 @@
     en: {
       Elements: {
         AddItem: {
-          Self: Add item
+          Self: Add item,
+          IsMap: false
         }
       }
     },
@@ -88,18 +92,22 @@
       Register: informell,
       Elements: {
         AddItem: {
-          Self: Lägg till
+          Self: Lägg till,
+          IsMap: false
         },
         Storefront: {
           Fields: {
             items: {
               Self: Varor,
-              Empty: Tomt!
+              Empty: Tomt!,
+              IsMap: true
             },
             total: {
-              Self: Summa
+              Self: Summa,
+              IsMap: false
             }
-          }
+          },
+          IsMap: true
         }
       }
     }

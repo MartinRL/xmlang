@@ -5,7 +5,7 @@
   <!-- The xmlang family: version minor tracks the spec (xmlang-spec.md); patch is free.
        Release tag xmlang-v*. -->
   <PropertyGroup>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
   </PropertyGroup>
 
 </Project>

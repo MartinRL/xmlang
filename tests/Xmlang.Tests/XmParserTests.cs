@@ -46,7 +46,7 @@ public class XmParserTests
                   - v: Storefront
             """).Surfaces.Single();
         surface.For.Should().BeEmpty();
-        surface.During.Should().BeEmpty();
+        surface.During.IsAll().Should().BeTrue();
     }
 
     [Fact]

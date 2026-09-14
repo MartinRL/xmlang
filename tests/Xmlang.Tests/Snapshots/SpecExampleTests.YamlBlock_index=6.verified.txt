@@ -2,8 +2,36 @@
   Labels: {
     en: {
       Elements: {
+        EndAuction: {
+          Self: End auction,
+          Confirm: End the auction now? No more bids can be placed.,
+          IsMap: true
+        },
+        NotEnoughPlayers: {
+          Self: At least two players are needed.,
+          IsMap: false
+        },
         PlaceBid: {
-          Self: Place bid
+          Self: Place bid,
+          IsMap: false
+        },
+        Screen / Round results: {
+          Fields: {
+            phase: {
+              Self: Status,
+              Values: {
+                ended: Closed,
+                lobby: Waiting,
+                started: Bidding
+              },
+              IsMap: true
+            },
+            trueWorth: {
+              Self: True worth: {trueWorth},
+              IsMap: false
+            }
+          },
+          IsMap: true
         }
       }
     },
@@ -11,21 +39,26 @@
       Register: lekfull,
       Elements: {
         PlaceBid: {
-          Self: Lägg bud!
+          Self: Lägg bud!,
+          IsMap: false
         },
         Screen / Round results: {
           Fields: {
             pricePaid: {
-              Self: Bud
+              Self: Bud,
+              IsMap: false
             },
             trueWorth: {
-              Self: Sant värde
+              Self: Sant värde,
+              IsMap: false
             },
             winnerIds: {
               Self: Vinnare,
-              Empty: Alla bjöd över!
+              Empty: Alla bjöd över!,
+              IsMap: true
             }
-          }
+          },
+          IsMap: true
         }
       }
     }

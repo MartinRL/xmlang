@@ -57,7 +57,7 @@ var findings = XmLinter.Lint(xm, em);
 
 ## Versioning
 
-The Xmlang package minor version tracks the specification version (`Xmlang 0.5.x` implements spec v0.5); the patch component is free for implementation fixes. The Emlang packages carry their own SemVer (`emlang-v*` tags) and implement the decider dialect in [emlang-dialect.md](emlang-dialect.md), forked from upstream emlang spec v1.0.0.
+The Xmlang package minor version tracks the specification version (`Xmlang 0.6.x` implements spec v0.6); the patch component is free for implementation fixes. The Emlang packages carry their own SemVer (`emlang-v*` tags) and implement the decider dialect in [emlang-dialect.md](emlang-dialect.md), forked from upstream emlang spec v1.0.0.
 
 ## Provenance
 

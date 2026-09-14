@@ -1,6 +1,7 @@
 ---
-title: "RFC emlang-0004: Lint rules, a non-normative appendix (draft)"
-status: draft
+title: "RFC emlang-0004: Lint rules, a non-normative appendix (accepted)"
+status: accepted
+accepted: 2026-09-14
 created: 2026-09-09
 targets: emlang spec 1.0.0, new appendix "Lint rules (non-normative)"; no schema change
 depends: "RFC emlang-0002 for `em-phase-transition-uncovered` (phase per decider) and for the dialect severity of `em-actor-identity`; RFC emlang-0003 for the trigger rule it indexes; not independently acceptable (redteam.md R22)"
@@ -8,7 +9,7 @@ consumed by: xmlang RFC 0001, debts 3, 6, 7 and 8
 ---
 # RFC emlang-0004: Lint rules (non-normative appendix)
 
-**Status: draft.** Nothing here is applied to the upstream spec, to `src/`, or to the fixtures. This RFC is the artifact the maintainer decides on. It proposes one appendix to the emlang spec and is the single list of every lint the emlang RFC set introduces, with the count each rule fires today on the four evidence models. The appendix is non-normative: no rule in it makes a document non-conforming, every rule is a recommendation, and it assigns no `error` severity of its own (`redteam.md` R21); where the dialect adopts a rule as a base rule, RFC emlang-0002 assigns its severity and this index copies it.
+**Status: accepted 2026-09-14, not yet implemented.** Nothing here is applied to the upstream spec, to `src/`, or to the fixtures. This RFC is the artifact the maintainer decides on. It proposes one appendix to the emlang spec and is the single list of every lint the emlang RFC set introduces, with the count each rule fires today on the four evidence models. The appendix is non-normative: no rule in it makes a document non-conforming, every rule is a recommendation, and it assigns no `error` severity of its own (`redteam.md` R21); where the dialect adopts a rule as a base rule, RFC emlang-0002 assigns its severity and this index copies it.
 
 ## Summary
 

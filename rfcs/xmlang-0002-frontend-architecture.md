@@ -1,6 +1,7 @@
 ---
-title: "RFC xmlang-0002: The frontend architecture xmlang maps onto (draft)"
-status: draft
+title: "RFC xmlang-0002: The frontend architecture xmlang maps onto (accepted)"
+status: accepted
+accepted: 2026-09-14
 created: 2026-09-11
 targets: "README Stance (xmlang half), a conformance check, the design-first protocol; no spec key changes"
 depends: "ChronosHub ADR 002 VSA, 004 CQRS, 006 Task-Based UI, 007 Async UX (proposed), 008 SignalR, 009 tenancy (provisional); RFC xmlang-0001 for confirm/then"
@@ -8,7 +9,7 @@ decided: "2026-09-11, maintainer: (1) xm succeeds only if it maps 1:1 onto a fro
 ---
 # RFC xmlang-0002: The frontend architecture xmlang maps onto
 
-**Status: draft.** Nothing here is applied to `xmlang-spec.md`, `src/`, or the fixtures. Fixed by the maintainer on 2026-09-11: the principle, the Task-based UI position, and that xm stays stack-neutral with the transformer doing the heavy lifting. The other two positions, the map and the ChronosHub binding are the artifact he decides on.
+**Status: accepted 2026-09-14, not yet implemented.** Nothing here is applied to `xmlang-spec.md`, `src/`, or the fixtures. Fixed by the maintainer on 2026-09-11: the principle, the Task-based UI position, and that xm stays stack-neutral with the transformer doing the heavy lifting. The other two positions, the map and the ChronosHub binding are the artifact he decides on.
 
 ## Summary
 
@@ -105,16 +106,20 @@ The plan's §3 signal-to-candidate rules are replaced by the table. Its provenan
 
 ## Decisions only the maintainer can make
 
-1. ~~Task-based UI position~~ confirmed 2026-09-11. Still open: the Observer and Slice/Surface positions and the substrate framing, as worded.
+1. ~~Task-based UI position~~ confirmed 2026-09-11. ~~Observer and Slice/Surface positions, substrate framing~~ confirmed as worded 2026-09-14 with the RFC's acceptance.
 2. ~~Vue binding now or after the Blazor gate~~ resolved 2026-09-11: neither belongs in xm. The binding column is a transformer artifact; the Vue transformer for the experiments carries the first one.
 3. Adopt ADR 007's tentative task-list-primary as xm's ChronosHub transformer default, knowing ADR 007 is proposed and expects the frontend engineer to overrule it.
-4. Link to the Claude Design design-system artifact, so the binding column is filled from the real component inventory and the missing-families list becomes evidence.
+4. Link to the Claude Design design-system artifact, so the binding column is filled from the real component inventory and the missing-families list becomes evidence. Direction fixed 2026-09-14: the first Blazor transformer (below) reuses as much of the ChronosHub design system as possible; how is the next question.
 5. Home of the conformance check: frontend repo script first, `xm check` later.
 6. Tenancy: Non-goal now, or admission test on the second testbed.
 
+## First application (decided 2026-09-14)
+
+The first transformer is not the Vue instrument. It is a **Blazor standalone (WebAssembly) SPA for CritterStackHelpDesk** (`C:/code/GitHub/CritterStackHelpDesk`, `specs/helpdesk.em.yaml`), emitted by an `Xmlang.Generators` Roslyn source generator in the shape `Emlang.Generators` already proved in kvissig.se: the generator emits code-behind partial classes (parameters, Task submission, Query subscription, label keys, route table) from `.em.yaml` + `.xm.yaml` as AdditionalFiles, and the human writes the `.razor` markup. Order per "What the map needs": one slice hand-written first, the binding column read off it, the generator emits what that slice showed. The Observer position costs one SignalR hub (Wolverine transport, ADR 008). Consequence: the experiments program stays on Vue, so the two transformers run side by side and the helpdesk is evidence for the ChronosHub Blazor gate and for the claim that the positions do not move when the transformer changes.
+
 ## Open objections
 
-- **Two stacks.** Every binding example is Vue-shaped. If Blazor wins, Telerik's component families may not partition the way the table assumes (DataTable vs DescriptionList). Answer (2026-09-11): the binding column is the transformer's, so a Blazor transformer brings its own; the model columns and the positions do not move.
+- **Two stacks.** Every binding example is Vue-shaped. If Blazor wins, Telerik's component families may not partition the way the table assumes (DataTable vs DescriptionList). Answer (2026-09-11): the binding column is the transformer's, so a Blazor transformer brings its own; the model columns and the positions do not move. Made real 2026-09-14: the first application is Blazor (above); this objection is now the thing the helpdesk tests.
 - **ADR 007 is a draft.** Building xm's lifecycle default on a tentative position risks re-work. Answer: the lifecycle row is the only row that depends on it, and the escape hatches are the same in every option.
 - **"Design system as architecture" hides the router and state layer.** The substrate framing names components and tokens; routing, guards and subscriptions are the Observer and Surface positions. If a reviewer finds an artifact in the frontend that none of the three positions owns, that is a fourth position, not a footnote.
 

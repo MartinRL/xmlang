@@ -1,6 +1,7 @@
 ---
-title: "RFC emlang-0003: Trigger sets (draft)"
-status: draft
+title: "RFC emlang-0003: Trigger sets (accepted)"
+status: accepted
+accepted: 2026-09-14
 created: 2026-09-09
 targets: "the emlang dialect in this repository (prose and lint; the dialect forks upstream emlang v1.0.0 per RFC emlang-0002)"
 depends: none
@@ -8,7 +9,7 @@ consumed by: "xmlang RFC 0001, debt 2; debt 1 reassigned to xmlang as `xm-origin
 ---
 # RFC emlang-0003: Trigger sets
 
-**Status: draft.** Nothing here is applied to `src/` or to the fixtures. This RFC is the artifact the maintainer decides on. It has one part: trigger sets, who may issue a command. A former Section B (trigger origin resolution to a view or a declared bare form) and a fixture fix adding host triggers to the games' Next and End slices were cut on 2026-09-11; both are recorded under Rejected alternatives with the reasoning.
+**Status: accepted 2026-09-14, not yet implemented.** Nothing here is applied to `src/` or to the fixtures. This RFC is the artifact the maintainer decides on. It has one part: trigger sets, who may issue a command. A former Section B (trigger origin resolution to a view or a declared bare form) and a fixture fix adding host triggers to the games' Next and End slices were cut on 2026-09-11; both are recorded under Rejected alternatives with the reasoning.
 
 ## Summary
 

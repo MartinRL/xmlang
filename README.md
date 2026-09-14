@@ -24,7 +24,7 @@ Event Modeling draws a system as a timeline of slices. This dialect takes three 
 
 The intended domain is B2B SaaS and line-of-business software. Background on the method: Martin Dilger, [Understanding Eventsourcing](https://leanpub.com/eventmodeling-and-eventsourcing).
 
-The dialect forks the upstream [emlang spec v1.0.0](https://github.com/emlang-project/spec) grammar: it adds an `s:` state element and makes the decider rules the default. Upstream tools do not read dialect files. The positions above are drafted as RFCs under [rfcs/](rfcs/), pending review.
+The dialect forks the upstream [emlang spec v1.0.0](https://github.com/emlang-project/spec) grammar: it adds an `s:` state element and makes the decider rules the default. Upstream tools do not read dialect files. The positions above are accepted RFCs under [rfcs/](rfcs/) (2026-09-14), not yet implemented in `src/`.
 
 ## Install
 

@@ -1,13 +1,14 @@
 ---
-title: "RFC 0001: Interaction judgments in xmlang (draft for v0.6.0)"
-status: draft
+title: "RFC 0001: Interaction judgments in xmlang (accepted for v0.6.0)"
+status: accepted
+accepted: 2026-09-14
 created: 2026-09-07
 targets: xmlang 0.6.0
 research: https://martinrl.github.io/articles/xmlang-interaction-model-research.html
 ---
 # RFC 0001: Interaction judgments in xmlang
 
-**Status: draft.** Nothing here is applied to `xmlang-spec.md`. This RFC is the artifact the maintainer decides on. The research behind it is in the companion article; the evidence files are listed at the end.
+**Status: accepted 2026-09-14, not yet implemented.** Nothing here is applied to `xmlang-spec.md`. This RFC is the artifact the maintainer decides on. The research behind it is in the companion article; the evidence files are listed at the end.
 
 ## Summary
 

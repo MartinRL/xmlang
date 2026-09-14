@@ -1,6 +1,6 @@
 # Design-first run: protocol (pre-registered)
 
-**Status: draft, unrun.** Every rule below is fixed before any design is opened. Changing a rule after the design is opened voids the run. Depends on `rfcs/xmlang-0002-frontend-architecture.md` (draft) for the extraction map, `rfcs/xmlang-0001-interaction-model.md` for the `confirm`/`then` candidates, and `rfcs/emlang-0002-decider-profile.md` for `s:` and the dialect lints. Nothing here changes `xmlang-spec.md`, `src/`, or the fixtures.
+**Status: draft, unrun.** Every rule below is fixed before any design is opened. Changing a rule after the design is opened voids the run. Depends on `rfcs/xmlang-0002-frontend-architecture.md` (accepted 2026-09-14) for the extraction map, `rfcs/xmlang-0001-interaction-model.md` for the `confirm`/`then` candidates, and `rfcs/emlang-0002-decider-profile.md` for `s:` and the dialect lints. Nothing here changes `xmlang-spec.md`, `src/`, or the fixtures.
 
 ## What is being tested
 

@@ -97,3 +97,17 @@ Uncontested fixes (R2-R9, R11-R14, R18-R23) are being folded into the drafts. Re
 4. **Host-trigger fixture fix dropped** (R17). RFC 0005 actor/automation is where a dual initiator is expressed; the only evidence was the game models.
 
 Still open: xmlang `journeys` vs persona lines (raised by the railway diagram, 2026-09-10); Dilger quote for RFC 0005; second testbed (ChronosHub flow, anonymise or counts only).
+
+## Decisions (2026-09-14, Martin): all RFCs accepted
+
+Accepted as written, none implemented: emlang 0002 (decider dialect, `s:`, DCB), 0003 (trigger sets), 0004 (lint appendix), 0005 (initiators); xmlang 0001 (interaction judgments, for v0.6.0), xmlang 0002 (frontend architecture: Observer and Slice/Surface positions and the substrate framing confirmed as worded). emlang 0001 stays withdrawn.
+
+Test plan: (1) implement in this repo and release (`s:` in `EmParser` and the generators, `t:` → actor/automation, the RFC 0004 lints, `during` map form, `then`/`confirm`; spec 0.6.0, snapshots re-approved); (2) upgrade kvissig.se's three em models as the mechanical regression test (games are negative control; xm files stay at v0.2.0 unless the parser breaks); (3) CritterStackHelpDesk gets a fresh UI/UX: Blazor standalone SPA + `Xmlang.Generators`, first slice hand-written (recorded in RFC xmlang-0002 "First application"). The helpdesk is a second LOB model, so it is also the pre-registered withdrawal test for xmlang 0001 `then:`: count terminal-`v:` versus `then` disagreements before authoring its xm.
+
+Still open after acceptance:
+1. Design system for the Blazor transformer: reuse as much of ChronosHub's as possible; inventory link and binding column (xmlang 0002 decision 4, protocol decision 5). Next question.
+2. xmlang 0002 decisions 3 (task-list-primary default), 5 (home of the conformance check), 6 (tenancy).
+3. Design-first protocol decisions 1-4 (flow and anonymisation, human in the loop, §13 numbers, §11); the protocol is unrun and the second-testbed slot is still the ChronosHub flow, not the helpdesk.
+4. xmlang `journeys` vs persona lines (2026-09-10).
+5. Dilger quote and outside model for RFC 0005.
+6. Every RFC's "Open objections (recorded, not resolved)" section stands as recorded; acceptance does not close them.

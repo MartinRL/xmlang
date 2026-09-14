@@ -1,6 +1,7 @@
 ---
-title: "RFC emlang-0005: Initiators, actors and automations (draft)"
-status: draft
+title: "RFC emlang-0005: Initiators, actors and automations (accepted)"
+status: accepted
+accepted: 2026-09-14
 created: 2026-09-10
 targets: "emlang spec 1.1.0 (base spec: two new element kinds, schema change); not the profile"
 depends: "RFC emlang-0003 for the Role /Origin form and the initiator-set rules; RFC emlang-0004 for em-actor-identity"
@@ -8,7 +9,7 @@ decided: "concept fixed by the maintainer on 2026-09-10; the word is under objec
 ---
 # RFC emlang-0005: Initiators, actors and automations
 
-**Status: draft.** Nothing here is applied to the upstream spec, to `src/`, or to the fixtures. The concept was fixed by the maintainer on 2026-09-10: what starts a slice is an initiator, of two kinds. An actor is a role that decides on a screen (Event Modeling's State Change pattern). An automation is a processor that decides from a view (the Automation pattern).
+**Status: accepted 2026-09-14, not yet implemented.** Nothing here is applied to the upstream spec, to `src/`, or to the fixtures. The concept was fixed by the maintainer on 2026-09-10: what starts a slice is an initiator, of two kinds. An actor is a role that decides on a screen (Event Modeling's State Change pattern). An automation is a processor that decides from a view (the Automation pattern).
 
 ## Summary
 

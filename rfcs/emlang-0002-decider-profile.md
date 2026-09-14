@@ -1,6 +1,7 @@
 ---
 title: "emlang RFC 0002: The decider dialect (state element and decider rules)"
-status: draft
+status: accepted
+accepted: 2026-09-14
 created: 2026-09-09
 revised: 2026-09-11
 targets: "the emlang dialect in this repository (src/emlang), forked from upstream emlang spec v1.0.0; consumer xmlang 0.6.0 (during per decision model)"
@@ -8,7 +9,7 @@ depends: "none (emlang RFC 0001 withdrawn 2026-09-11); required by emlang RFC 00
 ---
 # emlang RFC 0002: The decider dialect
 
-**Status: draft.** Nothing here is applied to `src/emlang` yet. This RFC defines the decider dialect of emlang: the maintainer's 1:1 map between an Event Model and its deciders, with Dynamic Consistency Boundaries (DCB, Pellegrini and Waidelich) as the consistency model. The dialect forks the upstream emlang v1.0.0 grammar: it adds a sixth element kind, `s:` (state), and makes the rules below the dialect's base rules. Upstream tools do not read dialect files, and no upstream acceptance is sought (decision 2026-09-11, `rfcs/emlang-evidence/PLAN.md`). It pays xmlang RFC 0001 debt 4 (phase per decision model), answers xmlang RFC 0001 open objection 3 for the state convention, and assigns the severity of the actor-identity rule whose text is in emlang RFC 0004. Dependency graph: RFC 0001 (profiles) is withdrawn; RFC 0004 requires this RFC; RFC 0003 section A stands alone. A pending RFC 0005 (`rfcs/emlang-0005-initiators.md`) renames `t:` to actor and automation; this RFC references it in one line and does not depend on it.
+**Status: accepted 2026-09-14, not yet implemented.** Nothing here is applied to `src/emlang` yet. This RFC defines the decider dialect of emlang: the maintainer's 1:1 map between an Event Model and its deciders, with Dynamic Consistency Boundaries (DCB, Pellegrini and Waidelich) as the consistency model. The dialect forks the upstream emlang v1.0.0 grammar: it adds a sixth element kind, `s:` (state), and makes the rules below the dialect's base rules. Upstream tools do not read dialect files, and no upstream acceptance is sought (decision 2026-09-11, `rfcs/emlang-evidence/PLAN.md`). It pays xmlang RFC 0001 debt 4 (phase per decision model), answers xmlang RFC 0001 open objection 3 for the state convention, and assigns the severity of the actor-identity rule whose text is in emlang RFC 0004. Dependency graph: RFC 0001 (profiles) is withdrawn; RFC 0004 requires this RFC; RFC 0003 section A stands alone. A pending RFC 0005 (`rfcs/emlang-0005-initiators.md`) renames `t:` to actor and automation; this RFC references it in one line and does not depend on it.
 
 Throughout, "document" means one YAML document (the unit between `---` separators), as in upstream "Document Structure" ("Each document MUST independently conform"). Every rule scoped to a document is scoped to that unit, never to the file. "Automation" is used for what the fixtures call `⚙️ System`; that text is quoted only when citing fixture lines.
 

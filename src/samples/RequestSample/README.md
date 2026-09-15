@@ -65,8 +65,8 @@ curl -X POST http://localhost:5000/requests/{id}/approve \
 
 ## Articles
 
-- [The Spec Is the Product](../../articles/the-spec-is-the-product.md) — Why deterministic generators on the backend matter
-- [The Screens Left the Repo](../../articles/the-screens-left-the-repo.md) — Why interpretation over generation for UI
+- **The Spec Is the Product** — Why deterministic generators on the backend matter. Read at [chronograph](https://martinrl.github.io/chronograph/the-spec-is-the-product).
+- **The Screens Left the Repo, and Nothing Replaced Them** — Why interpretation over generation for UI, and the four oracles guarding the seam. Read at [chronograph](https://martinrl.github.io/chronograph/the-screens-left-the-repo).
 
 This sample proves both. The domain vocabulary is generated (deterministic); the screens are interpreted (one living copy).
 

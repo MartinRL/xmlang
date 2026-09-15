@@ -12,10 +12,13 @@ public sealed record ReviewerAssigned(Guid RequestId, Guid ManagerId, DateTimeOf
 public sealed record Approved(Guid RequestId, DateTimeOffset ApprovedAt) : RequestEvent;
 public sealed record Rejected(Guid RequestId, string Reason, DateTimeOffset RejectedAt) : RequestEvent;
 
+// Railway-oriented programming: every command can take multiple error paths
 public abstract record RequestError;
-public sealed record InvalidDateRange : RequestError;
+public sealed record StartDateAfterEndDate : RequestError;
 public sealed record RequestNotFound : RequestError;
-public sealed record NotAssignedToYou : RequestError;
+public sealed record NotInAwaitingReviewState : RequestError;
+public sealed record RequestAlreadyDecided : RequestError;
+public sealed record ManagerNotAssigned : RequestError;
 
 public static class Decider
 {
@@ -57,33 +60,51 @@ public static class Decider
         DateTimeOffset now) =>
         command switch
         {
+            // Happy path: create request
+            // Error path: start ≥ end (date range)
             SubmitRequest c => c.StartDate >= c.EndDate
-                ? new InvalidDateRange()
+                ? new StartDateAfterEndDate()
                 : new RequestEvent[]
                 {
                     new Created(Guid.NewGuid(), c.EmployeeId, c.StartDate, c.EndDate, c.Reason, now)
                 },
 
+            // Happy path: assign reviewer
+            // Error paths: request doesn't exist, or wrong state
             AssignReviewer c => state.RequestId == Guid.Empty
                 ? new RequestNotFound()
-                : new RequestEvent[]
-                {
-                    new ReviewerAssigned(c.RequestId, c.ManagerId, now)
-                },
+                : state.Status != RequestStatus.Pending
+                    ? new RequestAlreadyDecided()
+                    : new RequestEvent[]
+                    {
+                        new ReviewerAssigned(c.RequestId, c.ManagerId, now)
+                    },
 
-            ApproveRequest c => state.Status != RequestStatus.AwaitingReview || state.ManagerId == Guid.Empty
-                ? new NotAssignedToYou()
-                : new RequestEvent[]
-                {
-                    new Approved(c.RequestId, now)
-                },
+            // Happy path: approve request
+            // Error paths: not found, not in review state, no manager assigned
+            ApproveRequest c => state.RequestId == Guid.Empty
+                ? new RequestNotFound()
+                : state.Status != RequestStatus.AwaitingReview
+                    ? new NotInAwaitingReviewState()
+                    : state.ManagerId == Guid.Empty
+                        ? new ManagerNotAssigned()
+                        : new RequestEvent[]
+                        {
+                            new Approved(c.RequestId, now)
+                        },
 
-            RejectRequest c => state.Status != RequestStatus.AwaitingReview || state.ManagerId == Guid.Empty
-                ? new NotAssignedToYou()
-                : new RequestEvent[]
-                {
-                    new Rejected(c.RequestId, c.Reason, now)
-                },
+            // Happy path: reject request
+            // Error paths: not found, not in review state, no manager assigned
+            RejectRequest c => state.RequestId == Guid.Empty
+                ? new RequestNotFound()
+                : state.Status != RequestStatus.AwaitingReview
+                    ? new NotInAwaitingReviewState()
+                    : state.ManagerId == Guid.Empty
+                        ? new ManagerNotAssigned()
+                        : new RequestEvent[]
+                        {
+                            new Rejected(c.RequestId, c.Reason, now)
+                        },
 
             _ => new RequestNotFound()
         };
@@ -91,13 +112,14 @@ public static class Decider
 
 public class OneOf<T1, T2>
 {
-    public OneOf(T1 value) => Value = value;
-    public OneOf(T2 error) => Value = error;
-    public object Value { get; }
+    public required object Value { get; init; }
     public bool IsSuccess => Value is T1;
     public bool IsError => Value is T2;
-    public T1? AsSuccess => Value as T1;
-    public T2? AsError => Value as T2;
+    public T1? AsSuccess => Value is T1 ? (T1)Value : default;
+    public T2? AsError => Value is T2 ? (T2)Value : default;
+
+    public static implicit operator OneOf<T1, T2>(T1 value) => new() { Value = value! };
+    public static implicit operator OneOf<T1, T2>(T2 error) => new() { Value = error! };
 }
 
 public static class ResultExt

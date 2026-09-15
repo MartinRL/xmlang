@@ -1,31 +1,65 @@
 # xmlang
 
-xmlang is a YAML-based DSL for **Experience Models**: the sibling dialect to emlang (Event Models as YAML), recording the UX judgments an Event Model deliberately omits — personas, surface composition, field salience, journeys, labels, design tokens — **as data, never as geometry**. The Experience Model depends on the Event Model strictly one-way, and every reference is lintable.
+Two YAML-based DSLs for specification-driven development:
 
-The canonical specification lives here: [xmlang-spec.md](xmlang-spec.md); the emlang dialect it depends on is specified as a delta against upstream in [emlang-dialect.md](emlang-dialect.md). This repository is also the reference implementation: a parser, an Event Model resolution surface, and a linter implementing the spec's full rule set.
+- **emlang** — Event Model DSL. Records what the system *does*: commands, events, views, test scenarios, state. An event-sourced domain expressed as pure data.
+- **xmlang** — Experience Model DSL. Records what users *see and do*: personas, surfaces, field salience, interaction judgments (`confirm:`, `then:`), journeys, labels, design tokens. **Judgment as data, never as geometry.** The Experience Model depends on the Event Model strictly one-way; every reference is lintable.
 
-The repository also hosts the .NET implementation of [emlang](https://github.com/emlang-project/emlang) itself — xmlang cannot live without it. The emlang here is an **opinionated dialect**: an Event Model DSL for **Vertical Slice Architecture × Decider × Dynamic Consistency Boundaries** (see [Stance](#stance)).
+Together, they separate domain logic from UX judgment, and make both machine-readable. The specs drive a deterministic source generator (at build time, equality contract) for domain vocabulary, and an interpreter (at request time, conformance contract) for UI rendering. See [The Screens Left the Repo](https://martinrl.github.io/chronograph/the-screens-left-the-repo) for the design rationale.
 
-- **Emlang** — the em parser (`EmParser`, the reference surface xm resolves against) and the line-aware AST, linter and formatter (`Emlang.Linting`).
-- **Emlang.Cli** — `em`, the .NET clone of the reference Go CLI (`dotnet tool install -g Emlang.Cli`). Commands so far: `em parse`, `em lint` and `em fmt` (`-w`, `--keys short|long`) with the reference toolchain's rule set and output format, stdin via `-`, plus `version`/`help`.
+The canonical specifications live here: [xmlang-spec.md](xmlang-spec.md) and [emlang-dialect.md](emlang-dialect.md). This repository is the reference implementation: parsers, linters, and CLIs for both dialects.
 
-This repository is the two DSLs and nothing downstream of them. Code generation from a model is an application concern: each app carries its own source generators against its own conventions (kvissig.se has one for its deciders; CritterStackHelpDesk will have one for its Blazor surfaces). `Emlang.Generators` was extracted to kvissig.se on 2026-09-14 and is no longer published.
+### Packages
 
-The emlang packages version and release independently (tags `emlang-v*`) from the xmlang packages (tags `xmlang-v*`).
+**Event Model (emlang)**
+- **Emlang** — Parser (`EmParser`), line-aware AST, linter, and formatter.
+- **Emlang.Cli** — `em` command-line tool. `em parse`, `em lint`, `em fmt` with support for stdin and formatting options.
 
-## Stance
+**Experience Model (xmlang)**
+- **Xmlang** — Parser (`XmParser`), linter, and interpreter (resolves xm specs against em specs).
+- **Xmlang.Cli** — `xm` command-line tool. `xm lint` resolves and validates xm specs against their event models.
 
-Event Modeling draws a system as a timeline of slices. This dialect takes three positions on what a slice *is*, and the [RFCs](rfcs/) make them lintable:
+**Important:** This repository is the two DSLs, parsers, and linters only. Code generation and UI rendering are application concerns. Each app carries its own source generators and interpreters against its own conventions:
+- kvissig.se has a Roslyn source generator for decider vocabulary (extracted 2026-09-14).
+- RequestSample demonstrates both patterns: generated domain vocabulary + an interpreter for UI rendering.
 
-| Position | Meaning here | Reference |
+The packages version independently: `emlang-v*` tags for Event Model releases, `xmlang-v*` for Experience Model.
+
+## How They Work Together
+
+```
+Event Model (emlang)          Experience Model (xmlang)
+├─ Commands                   ├─ Surfaces
+├─ Events                     ├─ Personas
+├─ Views (data, not layout)   ├─ Journeys
+├─ State (decider folds)      ├─ Commands + confirm:/then: judgment
+└─ Test scenarios             └─ Labels, design tokens
+
+        ↓ Lintable references (one-way dependency)
+
+Source Generator (app-owned)  Interpreter (request-time)
+├─ Generates domain vocab     ├─ Reads xm spec
+├─ Vocab lock-in: approval    ├─ Renders surfaces
+│  tests at CI                ├─ Approval tests on output
+└─ Deterministic: equality    └─ Conformance contract
+   contract
+```
+
+The event model is the source of truth. The experience model records surface decisions, personas, and interaction judgments as data. A source generator turns event models into deterministic code; an interpreter turns experience models into rendered UX at request time. Both are validated by approval tests.
+
+## Dialect Positions
+
+The emlang dialect (defined in [emlang-dialect.md](emlang-dialect.md)) forks upstream emlang spec v1.0.0 with three positions on what a slice *is*. The xmlang dialect (defined in [xmlang-spec.md](xmlang-spec.md)) defines how experience decisions bind to event model slices:
+
+| Position | Meaning in this dialect | Reference |
 |---|---|---|
-| **Vertical Slice Architecture** | Every slice is a complete feature: initiator, command, events, view, tests. Nothing is layered across slices. | Jimmy Bogard, [Vertical Slice Architecture](https://www.jimmybogard.com/vertical-slice-architecture/) (2018); Adam Dymitruk, [Event Modeling](https://eventmodeling.org/) |
-| **Decider** | A state-change slice is a pure `decide(command, state) → events` plus `evolve(state, event) → state`. Tests give **state**, never event lists; every state has a fold test that produces it. | Jérémie Chassaing, [Functional Event Sourcing Decider](https://thinkbeforecoding.com/post/2021/12/17/functional-event-sourcing-decider) (2021) |
-| **Dynamic Consistency Boundary** | A state is a *decision model*, defined by its fold tests: the event types they fold are its query, its identity props are its tags. No aggregates, no stream-per-entity; consistency is an append condition on that query. Swimlanes are canvas grouping only. | Sara Pellegrini, [Kill Aggregate!](https://sara.event-thinking.io/2023/04/kill-aggregate-chapter-1-I-am-here-to-kill-the-aggregate.html) (2023); Bastian Waidelich & Sara Pellegrini, [dcb.events](https://dcb.events/) |
+| **Vertical Slice Architecture** | Every slice is a complete feature: initiator, command, events, view, tests. Nothing is layered across slices. Surfaces in xm map 1:1 to decision model slices. | Jimmy Bogard, [Vertical Slice Architecture](https://www.jimmybogard.com/vertical-slice-architecture/) (2018); Adam Dymitruk, [Event Modeling](https://eventmodeling.org/) |
+| **Decider** | A state-change slice is a pure `decide(command, state, context) → events ∪ error`. Tests give **state**, never event lists; every state has a fold test that produces it. The xm dialect adds interaction judgment (`confirm:`, `then:`) to commands. | Jérémie Chassaing, [Functional Event Sourcing Decider](https://thinkbeforecoding.com/post/2021/12/17/functional-event-sourcing-decider) (2021) |
+| **Dynamic Consistency Boundary** | A state is a *decision model*, defined by its fold tests: the event types they fold are its query, its identity props are its tags. Surfaces compose views from this query. No aggregates, no stream-per-entity; consistency is an append condition on that query. | Sara Pellegrini, [Kill Aggregate!](https://sara.event-thinking.io/2023/04/kill-aggregate-chapter-1-I-am-here-to-kill-the-aggregate.html) (2023); Bastian Waidelich & Sara Pellegrini, [dcb.events](https://dcb.events/) |
 
 The intended domain is B2B SaaS and line-of-business software. Background on the method: Martin Dilger, [Understanding Eventsourcing](https://leanpub.com/eventmodeling-and-eventsourcing).
 
-The dialect forks the upstream [emlang spec v1.0.0](https://github.com/emlang-project/spec) grammar: it adds an `s:` state element and makes the decider rules the default. Upstream tools do not read dialect files. The positions above are accepted RFCs under [rfcs/](rfcs/) (2026-09-14), not yet implemented in `src/`.
+The RFCs accepting these positions live under [rfcs/](rfcs/) (accepted 2026-09-14).
 
 ## Install
 

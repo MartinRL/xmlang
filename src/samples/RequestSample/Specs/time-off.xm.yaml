@@ -1,0 +1,109 @@
+xmlang: "0.6"
+model: time-off.em.yaml
+
+personas:
+  Requester:
+    role: 🧑‍💼 requester
+    props:
+      goal: submit a time-off request and track its status
+      device: browser
+      context: employee self-service portal
+  Manager:
+    role: 🧑‍💼 manager
+    props:
+      goal: review requests and approve or reject them
+      device: browser
+      context: manager decision interface
+
+surfaces:
+  SubmitForm:
+    for: [Requester]
+    compose:
+      - c: SubmitRequest
+        prominence: primary
+
+  PendingRequests:
+    for: [Manager]
+    compose:
+      - v: State / Request
+        fields:
+          primary: [employeeId, startDate, endDate, reason]
+          secondary: [status, createdAt]
+
+  RequestDetail:
+    for: [Manager]
+    compose:
+      - v: State / Request
+        fields:
+          primary: [employeeId, startDate, endDate, reason]
+          secondary: [status, createdAt]
+      - c: ApproveRequest
+        prominence: primary
+        confirm: true
+        then: PendingRequests
+      - c: RejectRequest
+        prominence: primary
+        confirm: true
+        then: PendingRequests
+
+  RequestHistory:
+    for: [Requester, Manager]
+    compose:
+      - v: State / Request
+        fields:
+          primary: [status, startDate, endDate]
+          secondary: [reason, managerId]
+          on-demand: [rejectionReason, createdAt]
+
+journeys:
+  RequestWorkflow:
+    for: [Requester]
+    slices:
+      - ✍️ Create Request
+      - ✍️ Decide
+
+  ApprovalWorkflow:
+    for: [Manager]
+    slices:
+      - ✍️ Assign Reviewer
+      - ✍️ Decide
+
+labels:
+  en:
+    register: formal, workplace
+    SubmitRequest: Request Time Off
+    ApproveRequest: Approve
+    RejectRequest: Reject
+    AssignReviewer: Review This Request
+
+    "State / Request":
+      employeeId: Employee
+      startDate: Start Date
+      endDate: End Date
+      reason: Reason
+      status:
+        $self: Status
+        $values: { pending: Pending, awaiting_review: Awaiting Review, approved: Approved, rejected: Rejected }
+      managerId: Reviewer
+      rejectionReason: Reason for Rejection
+      createdAt: Submitted On
+
+    SubmitForm: New Request
+    PendingRequests: Pending Requests
+    RequestDetail: Review Request
+    RequestHistory: Request History
+
+    Requester: Employee
+    Manager: Manager
+
+tokens:
+  color:
+    approve:
+      $type: color
+      $value: "#22c55e"
+    reject:
+      $type: color
+      $value: "#ef4444"
+    pending:
+      $type: color
+      $value: "#f59e0b"

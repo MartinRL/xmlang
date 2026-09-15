@@ -1,0 +1,158 @@
+# Time-Off Request — Event-Sourced Domain Model
+# A minimal request/approval workflow to demonstrate emlang + xmlang.
+#
+# Slices: Requester creates → Manager assigns to self → Manager decides → State view
+# Roles: requester (the employee), manager (the approver), system (automation)
+
+slices:
+
+  # Create Request
+  ✍️ Create Request:
+    steps:
+      - a: 🧑‍💼 requester /Form
+      - c: SubmitRequest
+        props:
+          employeeId: Guid
+          startDate: DateOnly
+          endDate: DateOnly
+          reason: string
+      - x: InvalidDateRange
+      - e: Request / Created
+        props:
+          requestId: Guid
+          employeeId: Guid
+          startDate: DateOnly
+          endDate: DateOnly
+          reason: string
+          createdAt: DateTimeOffset
+      - v: State / Request
+    tests:
+      valid request can be created:
+        given:
+          - s: Request
+        when:
+          - c: SubmitRequest
+            props: { employeeId: emp1, startDate: 2026-10-01, endDate: 2026-10-05, reason: vacation }
+        then:
+          - e: Request / Created
+            props: { employeeId: emp1, startDate: 2026-10-01, endDate: 2026-10-05 }
+      end date before start date is rejected:
+        given:
+          - s: Request
+        when:
+          - c: SubmitRequest
+            props: { startDate: 2026-10-05, endDate: 2026-10-01 }
+        then:
+          - x: InvalidDateRange
+
+  # Assign Reviewer
+  ✍️ Assign Reviewer:
+    steps:
+      - a: 🧑‍💼 manager /Pending Requests
+      - c: AssignReviewer
+        props:
+          requestId: Guid
+          managerId: Guid
+      - x: RequestNotFound
+      - e: Request / ReviewerAssigned
+        props:
+          requestId: Guid
+          managerId: Guid
+          assignedAt: DateTimeOffset
+      - v: State / Request
+    tests:
+      manager can assign themselves:
+        given:
+          - s: Request
+            props: { status: pending }
+          - e: Request / Created
+        when:
+          - c: AssignReviewer
+            props: { requestId: req1, managerId: mgr1 }
+        then:
+          - e: Request / ReviewerAssigned
+            props: { managerId: mgr1 }
+
+  # Decide (Approve/Reject)
+  ✍️ Decide:
+    steps:
+      - a: 🧑‍💼 manager /Assigned Requests
+      - c: ApproveRequest
+        props:
+          requestId: Guid
+      - c: RejectRequest
+        props:
+          requestId: Guid
+          reason: string
+      - x: RequestNotFound
+      - x: NotAssignedToYou
+      - e: Request / Approved
+        props:
+          requestId: Guid
+          approvedAt: DateTimeOffset
+      - e: Request / Rejected
+        props:
+          requestId: Guid
+          reason: string
+          rejectedAt: DateTimeOffset
+      - v: State / Request
+    tests:
+      assigned manager can approve:
+        given:
+          - s: Request
+            props: { status: awaiting_review, managerId: mgr1 }
+        when:
+          - c: ApproveRequest
+            props: { requestId: req1 }
+        then:
+          - e: Request / Approved
+      assigned manager can reject:
+        given:
+          - s: Request
+            props: { status: awaiting_review, managerId: mgr1 }
+        when:
+          - c: RejectRequest
+            props: { requestId: req1, reason: coverage needed }
+        then:
+          - e: Request / Rejected
+            props: { reason: coverage needed }
+      unassigned manager cannot decide:
+        given:
+          - s: Request
+            props: { status: awaiting_review, managerId: mgr1 }
+        when:
+          - c: ApproveRequest
+            props: { requestId: req1 }
+        then:
+          - x: NotAssignedToYou
+
+  # View State
+  👀 Request State:
+    steps:
+      - v: State / Request
+        props:
+          requestId: Guid
+          employeeId: Guid
+          startDate: DateOnly
+          endDate: DateOnly
+          reason: string
+          status: RequestStatus (pending|awaiting_review|approved|rejected)
+          managerId: Guid
+          rejectionReason: string
+          createdAt: DateTimeOffset
+    tests:
+      state reflects created event:
+        given:
+          - e: Request / Created
+            props: { requestId: req1, employeeId: emp1, status: pending }
+        then:
+          - v: State / Request
+            props: { status: pending }
+      state reflects approval:
+        given:
+          - e: Request / Created
+          - e: Request / ReviewerAssigned
+          - e: Request / Approved
+        then:
+          - v: State / Request
+            props: { status: approved }

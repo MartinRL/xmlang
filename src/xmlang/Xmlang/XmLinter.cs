@@ -39,7 +39,7 @@ public static class XmLinter
     private static void LintPersonas(XmSpec xm, EmSpec em, List<XmFinding> findings)
     {
         foreach (var persona in xm.Personas)
-            if (persona.Role is { } role && !em.TriggerRoles.Contains(EmNames.NormalizeRole(role)))
+            if (persona.Role is { } role && !em.InitiatorRoles.Contains(EmNames.NormalizeRole(role)))
                 findings.Add(new("xm-unknown-role", XmSeverity.Warning,
                     $"persona '{persona.Name}' role '{role}' matches no initiator role in the Event Model"));
     }

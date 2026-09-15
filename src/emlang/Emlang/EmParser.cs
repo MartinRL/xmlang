@@ -46,7 +46,7 @@ public record EmScenario(string Slice, string Command, string? State, string? Ph
 public record EmSpec(
     IReadOnlyList<EmElement> Elements,
     IReadOnlyList<string> Slices,
-    IReadOnlyList<string> TriggerRoles,
+    IReadOnlyList<string> InitiatorRoles,
     IReadOnlyDictionary<string, IReadOnlyList<string>> Phases,
     IReadOnlyList<EmInitiator> Initiators,
     IReadOnlyList<EmSliceChain> Chains,
@@ -155,10 +155,10 @@ public static class EmParser
         ["s"] = 's', ["st"] = 's', ["state"] = 's',
     };
 
-    /// <summary>Initiator keys → is-automation (null = legacy trigger, classified by heuristic).</summary>
-    private static readonly IReadOnlyDictionary<string, bool?> InitiatorKinds = new Dictionary<string, bool?>
+    /// <summary>Initiator keys → is-automation.</summary>
+    private static readonly IReadOnlyDictionary<string, bool> InitiatorKinds = new Dictionary<string, bool>
     {
-        ["t"] = null, ["trg"] = null, ["trigger"] = null,
+        ["t"] = false, ["translator"] = false,
         ["a"] = false, ["actor"] = false,
         ["auto"] = true, ["automation"] = true,
     };
@@ -178,8 +178,7 @@ public static class EmParser
             if (InitiatorKinds.TryGetValue(key, out var isAutomation))
             {
                 var (role, origin) = EmSpec.Split(raw);
-                initiators.Add(new EmInitiator(slice, role, origin,
-                    isAutomation ?? Emlang.Linting.EmNames.IsAutomationHeuristic(role)));
+                initiators.Add(new EmInitiator(slice, role, origin, isAutomation));
                 return;
             }
             if (!Kinds.TryGetValue(key, out var kind))

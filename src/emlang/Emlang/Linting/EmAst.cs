@@ -11,13 +11,13 @@ namespace Emlang.Linting;
 /// the first '/', GWT test sections with type validation. This is the surface `em lint`/`em parse` operate on; EmParser
 /// and SpecModel stay the resolution/codegen surfaces.
 /// </summary>
-public enum EmElementType { Trigger, Command, Event, Rejection, View, State, Actor, Automation }
+public enum EmElementType { Translator, Command, Event, Rejection, View, State, Actor, Automation }
 
 public static class EmElementTypes
 {
     public static string Display(this EmElementType type) => type switch
     {
-        EmElementType.Trigger => "trigger",
+        EmElementType.Translator => "translator",
         EmElementType.Command => "command",
         EmElementType.Event => "event",
         EmElementType.Rejection => "rejection",
@@ -28,9 +28,9 @@ public static class EmElementTypes
         _ => "unknown",
     };
 
-    /// <summary>Initiators (RFC emlang-0005): actors and automations, plus the legacy trigger.</summary>
+    /// <summary>Initiators (RFC emlang-0005): actors, automations, and translators.</summary>
     public static bool IsInitiator(this EmElementType type) =>
-        type is EmElementType.Trigger or EmElementType.Actor or EmElementType.Automation;
+        type is EmElementType.Translator or EmElementType.Actor or EmElementType.Automation;
 }
 
 /// <summary>Name conventions shared by the linter, the formatter and xmlang (RFC emlang-0004
@@ -46,17 +46,6 @@ public static class EmNames
         return swimlane.Substring(i).Trim().ToLowerInvariant();
     }
 
-    /// <summary>The `em fmt` migration heuristic for a legacy `t:`: System, or a gear emoji, is an automation.</summary>
-    public static bool IsAutomationHeuristic(string swimlane) =>
-        NormalizeRole(swimlane) == "system" || swimlane.TrimStart().StartsWith("⚙", StringComparison.Ordinal);
-
-    /// <summary>An initiator's kind, reading legacy triggers through the heuristic.</summary>
-    public static bool IsAutomation(EmElement initiator) => initiator.Type switch
-    {
-        EmElementType.Automation => true,
-        EmElementType.Actor => false,
-        _ => IsAutomationHeuristic(initiator.Swimlane),
-    };
 }
 
 /// <summary>Prop values are string (scalar), IReadOnlyList&lt;object?&gt; (sequence) or
@@ -99,9 +88,8 @@ public static class EmAst
 {
     private static readonly Dictionary<string, EmElementType> Prefixes = new()
     {
-        ["t"] = EmElementType.Trigger,
-        ["trg"] = EmElementType.Trigger,
-        ["trigger"] = EmElementType.Trigger,
+        ["t"] = EmElementType.Translator,
+        ["translator"] = EmElementType.Translator,
         ["c"] = EmElementType.Command,
         ["cmd"] = EmElementType.Command,
         ["command"] = EmElementType.Command,

@@ -40,7 +40,6 @@ public static class Linter
         ["em-state-phase-without-fold"] = LintSeverity.Error,
         ["em-given-todo"] = LintSeverity.Warning,
         ["em-initiator-after-command"] = LintSeverity.Warning,
-        ["em-legacy-trigger"] = LintSeverity.Info,
         ["em-phase-transition-uncovered"] = LintSeverity.Warning,
         ["em-actor-identity"] = LintSeverity.Error,
         ["em-view-prop-untraced"] = LintSeverity.Warning,
@@ -140,10 +139,6 @@ public static class Linter
                     Add("em-initiator-after-command",
                         $"initiator '{element.Swimlane}/{element.Name}' follows the slice's command; initiators precede the command they issue", element);
 
-                if (element.Type == EmElementType.Trigger)
-                    Add("em-legacy-trigger",
-                        $"legacy trigger 't:'; write 'a:' (actor) or 'auto:' (automation), or run em fmt", element);
-
                 LintParamNotes(element, inTest: false);
             }
 
@@ -163,7 +158,7 @@ public static class Linter
         private void LintActorIdentity(EmSlice slice)
         {
             var roles = slice.Elements
-                .Where(e => e.Type.IsInitiator() && !EmNames.IsAutomation(e))
+                .Where(e => e.Type == EmElementType.Actor)
                 .Select(e => EmNames.NormalizeRole(e.Swimlane))
                 .Where(r => r.Length > 0)
                 .ToList();

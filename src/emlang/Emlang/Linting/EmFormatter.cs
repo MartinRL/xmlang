@@ -81,7 +81,7 @@ public static class EmFormatter
     private static void WriteElement(StringBuilder buf, int level, EmElement element, string style)
     {
         var name = element.Swimlane.Length == 0 ? element.Name : $"{element.Swimlane}/{element.Name}";
-        Line(buf, level, $"- {TypeKey(Migrated(element), style)}: {name}");
+        Line(buf, level, $"- {TypeKey(element.Type, style)}: {name}");
 
         if (element.Props.Count == 0)
             return;
@@ -90,18 +90,11 @@ public static class EmFormatter
             Line(buf, level + 2, $"{prop.Key}: {FormatValue(prop.Value)}");
     }
 
-    // RFC emlang-0005: a legacy trigger is rewritten once, as an automation when its
-    // swimlane is System or carries the gear emoji, otherwise as an actor.
-    private static EmElementType Migrated(EmElement element) =>
-        element.Type != EmElementType.Trigger ? element.Type
-            : EmNames.IsAutomationHeuristic(element.Swimlane) ? EmElementType.Automation
-            : EmElementType.Actor;
-
     private static string TypeKey(EmElementType type, string style) =>
         style == "short"
             ? type switch
             {
-                EmElementType.Trigger => "t",
+                EmElementType.Translator => "t",
                 EmElementType.Command => "c",
                 EmElementType.Event => "e",
                 EmElementType.Rejection => "x",

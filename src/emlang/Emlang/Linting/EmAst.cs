@@ -11,7 +11,7 @@ namespace Emlang.Linting;
 /// the first '/', GWT test sections with type validation. This is the surface `em lint`/`em parse` operate on; EmParser
 /// and SpecModel stay the resolution/codegen surfaces.
 /// </summary>
-public enum EmElementType { Trigger, Command, Event, Exception, View, State, Actor, Automation }
+public enum EmElementType { Trigger, Command, Event, Rejection, View, State, Actor, Automation }
 
 public static class EmElementTypes
 {
@@ -20,7 +20,7 @@ public static class EmElementTypes
         EmElementType.Trigger => "trigger",
         EmElementType.Command => "command",
         EmElementType.Event => "event",
-        EmElementType.Exception => "exception",
+        EmElementType.Rejection => "rejection",
         EmElementType.View => "view",
         EmElementType.State => "state",
         EmElementType.Actor => "actor",
@@ -108,9 +108,9 @@ public static class EmAst
         ["e"] = EmElementType.Event,
         ["evt"] = EmElementType.Event,
         ["event"] = EmElementType.Event,
-        ["x"] = EmElementType.Exception,
-        ["err"] = EmElementType.Exception,
-        ["exception"] = EmElementType.Exception,
+        ["x"] = EmElementType.Rejection,
+        ["rej"] = EmElementType.Rejection,
+        ["rejection"] = EmElementType.Rejection,
         ["v"] = EmElementType.View,
         ["view"] = EmElementType.View,
         ["s"] = EmElementType.State,
@@ -266,7 +266,7 @@ public static class EmAst
         [EmElementType.Event, EmElementType.View, EmElementType.State];
     private static readonly EmElementType[] AllowedWhen = [EmElementType.Command];
     private static readonly EmElementType[] AllowedThen =
-        [EmElementType.Event, EmElementType.View, EmElementType.Exception, EmElementType.State];
+        [EmElementType.Event, EmElementType.View, EmElementType.Rejection, EmElementType.State];
 
     private static EmTest ParseTest(string name, YamlNode node)
     {

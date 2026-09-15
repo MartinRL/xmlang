@@ -15,16 +15,16 @@ The reference implementation is `src/emlang`: `Emlang.Linting.EmAst` (parser), `
 
 Upstream defines five element kinds. The dialect defines **eight**:
 
-| Kind | short | acronym | long | Where |
-|---|---|---|---|---|
-| Actor (initiator) | `a:` | | `actor:` | `steps` |
-| Automation (initiator) | `auto:` | | `automation:` | `steps` |
-| Trigger (legacy initiator) | `t:` | `trg:` | `trigger:` | `steps` |
-| Command | `c:` | `cmd:` | `command:` | `steps`, `when` |
-| Event | `e:` | `evt:` | `event:` | `steps`, `given`, `then` |
-| Exception | `x:` | `err:` | `exception:` | `steps`, `then` |
-| View | `v:` | | `view:` | `steps`, `given`, `then` |
-| **State** | `s:` | `st:` | `state:` | `steps`, `given`, `then` |
+| Kind                       | short   | acronym | long          | Where                    |
+| -------------------------- | ------- | ------- | ------------- | ------------------------ |
+| Actor (initiator)          | `a:`    |         | `actor:`      | `steps`                  |
+| Automation (initiator)     | `auto:` |         | `automation:` | `steps`                  |
+| Trigger (legacy initiator) | `t:`    | `trg:`  | `trigger:`    | `steps`                  |
+| Command                    | `c:`    | `cmd:`  | `command:`    | `steps`, `when`          |
+| Event                      | `e:`    | `evt:`  | `event:`      | `steps`, `given`, `then` |
+| Exception                  | `x:`    | `err:`  | `exception:`  | `steps`, `then`          |
+| View                       | `v:`    |         | `view:`       | `steps`, `given`, `then` |
+| **State**                  | `s:`    | `st:`   | `state:`      | `steps`, `given`, `then` |
 
 - An **actor** names a role that decides on a screen; an **automation** names a processor that decides from a view. Together they are a slice's **initiators**. `t:`/`trg:`/`trigger:` remain valid as legacy (`em-legacy-trigger`, info); `em fmt` rewrites a legacy trigger once: `auto:` when its swimlane normalizes to `system` or begins with `⚙️`, otherwise `a:`. Leading emoji in a swimlane are decoration and carry no meaning; tools MUST NOT read the kind from them.
 - A **state** names one decision model (see below). A **view** is a read model and never a decision model; the swimlane text `State` carries no meaning on a view.

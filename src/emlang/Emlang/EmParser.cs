@@ -28,7 +28,7 @@ public record EmInitiator(string Slice, string Role, string Origin, bool IsAutom
 }
 
 /// <summary>A slice's ordered steps as referenced (kind + lane + name), the projection xmlang's
-/// navigation defaults read: the command, its exceptions and events, and the terminal view.</summary>
+/// navigation defaults read: the command, its rejections and events, and the terminal view.</summary>
 public record EmSliceChain(string Slice, IReadOnlyList<EmElement> Steps)
 {
     public IEnumerable<EmElement> Commands => Steps.Where(e => e.Kind == 'c');
@@ -36,7 +36,7 @@ public record EmSliceChain(string Slice, IReadOnlyList<EmElement> Steps)
 }
 
 /// <summary>One decision test: the command, the state it gives (null when malformed), the
-/// phase pinned on that state, and whether the outcome is events (success) or an exception.</summary>
+/// phase pinned on that state, and whether the outcome is events (success) or a rejection.</summary>
 public record EmScenario(string Slice, string Command, string? State, string? Phase, bool Success);
 
 /// <summary>The Event Model surface xm references resolve against: elements, slice keys
@@ -61,7 +61,7 @@ public record EmSpec(
     public EmElement? FindCommand(string name) =>
         Elements.FirstOrDefault(e => e.Kind == 'c' && e.Name == name);
 
-    public EmElement? FindException(string name) =>
+    public EmElement? FindRejection(string name) =>
         Elements.FirstOrDefault(e => e.Kind == 'x' && e.Name == name);
 
     /// <summary>A decision model by name; the swimlane, if any was written, is ignored.</summary>
@@ -150,7 +150,7 @@ public static class EmParser
     {
         ["c"] = 'c', ["cmd"] = 'c', ["command"] = 'c',
         ["e"] = 'e', ["evt"] = 'e', ["event"] = 'e',
-        ["x"] = 'x', ["err"] = 'x', ["exception"] = 'x',
+        ["x"] = 'x', ["rej"] = 'x', ["rejection"] = 'x',
         ["v"] = 'v', ["view"] = 'v',
         ["s"] = 's', ["st"] = 's', ["state"] = 's',
     };

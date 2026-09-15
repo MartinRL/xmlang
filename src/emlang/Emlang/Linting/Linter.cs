@@ -19,7 +19,7 @@ public sealed record LintIssue(
 
 /// <summary>
 /// The dialect's lint rule set: the three reference rules ported from the Go linter
-/// (command-without-event, orphan-exception, slice-missing-event) plus the decider rules of
+/// (command-without-event, orphan-rejection, slice-missing-event) plus the decider rules of
 /// RFC emlang-0002, the initiator rules of RFC emlang-0003/0005 and the appendix rules of
 /// RFC emlang-0004. Severities are the dialect column of RFC emlang-0004's index. Every
 /// rule reads one YAML document (an <see cref="EmSubDoc"/>); "document order carries no
@@ -30,7 +30,7 @@ public static class Linter
     public static readonly IReadOnlyDictionary<string, LintSeverity> Severities = new Dictionary<string, LintSeverity>
     {
         ["command-without-event"] = LintSeverity.Warning,
-        ["orphan-exception"] = LintSeverity.Warning,
+        ["orphan-rejection"] = LintSeverity.Warning,
         ["slice-missing-event"] = LintSeverity.Warning,
         ["em-given-not-one-state"] = LintSeverity.Error,
         ["em-fold-shape"] = LintSeverity.Error,
@@ -129,12 +129,12 @@ public static class Linter
                 if (element.Type == EmElementType.Command)
                 {
                     hasCommand = true;
-                    if (!IsFollowedByEventOrException(slice.Elements, i))
-                        Add("command-without-event", "command should be followed by an event or exception", element);
+                    if (!IsFollowedByEventOrRejection(slice.Elements, i))
+                        Add("command-without-event", "command should be followed by an event or rejection", element);
                 }
 
-                if (element.Type == EmElementType.Exception && !hasCommand)
-                    Add("orphan-exception", "exception without preceding command", element);
+                if (element.Type == EmElementType.Rejection && !hasCommand)
+                    Add("orphan-rejection", "rejection without preceding command", element);
 
                 if (element.Type.IsInitiator() && hasCommand)
                     Add("em-initiator-after-command",
@@ -351,14 +351,14 @@ public static class Linter
             return note.IndexOf('|') >= 0 ? note.Split('|').Select(v => v.Trim()) : [];
         }
 
-        private static bool IsFollowedByEventOrException(IReadOnlyList<EmElement> elements, int index)
+        private static bool IsFollowedByEventOrRejection(IReadOnlyList<EmElement> elements, int index)
         {
             for (var i = index + 1; i < elements.Count; i++)
             {
                 switch (elements[i].Type)
                 {
                     case EmElementType.Event:
-                    case EmElementType.Exception:
+                    case EmElementType.Rejection:
                         return true;
                     case EmElementType.Command:
                         return false;

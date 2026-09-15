@@ -104,7 +104,7 @@ public static class EmFormatter
                 EmElementType.Trigger => "t",
                 EmElementType.Command => "c",
                 EmElementType.Event => "e",
-                EmElementType.Exception => "x",
+                EmElementType.Rejection => "x",
                 EmElementType.View => "v",
                 EmElementType.State => "s",
                 EmElementType.Actor => "a",

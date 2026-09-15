@@ -226,7 +226,7 @@ Labels are nested maps keyed by **exact element names**. There is no path gramma
 
 - `labels` MUST be an object mapping locale tags ([BCP 47](https://www.rfc-editor.org/rfc/rfc5646)) to label maps
 - A label map MAY contain a `register` key with a free-form value describing the copy register (e.g. formal, informal)
-- Every other key of a label map MUST be the exact name of a command, view, surface, journey, persona, or exception (an `x:` element); an exception key takes the string form only
+- Every other key of a label map MUST be the exact name of a command, view, surface, journey, persona, or rejection (an `x:` element); a rejection key takes the string form only
 - The value of an element key MUST be either:
   - a string: the element's own label, or
   - a map whose keys are field names on that element (for views and commands) plus the reserved keys below
@@ -254,7 +254,7 @@ labels:
         $empty: Alla bjöd över!        # empty-state copy for this field
   en:
     PlaceBid: Place bid
-    NotEnoughPlayers: At least two players are needed.   # an exception, string form only
+    NotEnoughPlayers: At least two players are needed.   # a rejection, string form only
     EndAuction:
       $self: End auction
       $confirm: "End the auction now? No more bids can be placed."
@@ -309,7 +309,7 @@ These rows state what every shipped interpreter and every clean-room probe compu
 | Global navigation | The surfaces the entry rule ranges over, in document order; `during`-bound surfaces are reached through destinations and links; a terminal-phase surface offers a return to the entry surface |
 | Destination after a command | The surface applicable to the viewer's persona that composes the terminal view of the command's slice, in the resulting phase; if there is none, or it is the issuing surface, the issuing surface (stay); a rejected command re-presents the issuing surface. `then` overrides |
 | Selection within a `during` × `for` cell | If the cell holds one `during`-bound surface for the persona, that surface. If several, the surface composing the terminal view of the slice whose event fired most recently for the viewer: the viewer's own command's event, an automation's event, or another persona's event advance the viewer; an event from a peer of the viewer's own persona does not. Ties are broken by offerable commands, then declaration order |
-| Enablement | A composed command is rendered only to personas whose `role` matches one of the command's initiator roles. A command the Event Model shows would be rejected for this viewer in the current state independent of typed input (a rejection scenario whose `given` differs from a success scenario's while its `when` props match) is rendered disabled with the blocking exception's label, never hidden by state alone. Input-validation and concurrency rejections are reported after the attempt |
+| Enablement | A composed command is rendered only to personas whose `role` matches one of the command's initiator roles. A command the Event Model shows would be rejected for this viewer in the current state independent of typed input (a rejection scenario whose `given` differs from a success scenario's while its `when` props match) is rendered disabled with the blocking rejection's label, never hidden by state alone. Input-validation and concurrency rejections are reported after the attempt |
 | Required input | A command prop is required iff some rejection scenario rejects its absence |
 | Bulk actions | A command whose prop is a list of a composed view's item identity is offered over the viewer's selection of that view |
 | Links | A view field typed as another view's identity links to the surface composing that view for the persona |
@@ -387,7 +387,7 @@ Driven by the Interaction Model inquiry ([RFC xmlang-0001](rfcs/xmlang-0001-inte
 
 - **Added `confirm:`** (command item, boolean): the viewer's explicit assent before a command. Form of assent is transformer-defined. Rejects tiers, placement and derivation from compensation
 - **Added `then:`** (command item, surface name): return to a surface after an accepted command. Return, never advance; never conditional; never an instance. Provisionally admitted; `xm-then-restates-default` is its dead-weight metric
-- **Labels**: exception names are labelable; reserved `$confirm` (command) and `$values` (field); ICU MessageFormat arguments restricted to simple and plural; surface headings carry data through arguments. Replaces a proposed `heading:` key
+- **Labels**: rejection names are labelable; reserved `$confirm` (command) and `$values` (field); ICU MessageFormat arguments restricted to simple and plural; surface headings carry data through arguments. Replaces a proposed `heading:` key
 - **Defaults**: new sub-table "Navigation and enablement defaults" (entry, global navigation, destination, selection within a cell, enablement, required input, bulk, links, unidentified viewer). **Corrects v0.2**: fine selection within a cell is derived, not inexpressible; the `when:` Non-goal is rewritten as redundant
 - **`during` resolves per decision model**: phases come from the decider dialect's `s:` state element (the `State` lane on a view carries no meaning); map form added; `xm-ambiguous-phase`. Fixes a namespace collision in multi-decider models
 - **Lint rules v0.6**: eleven rules added (`xm-ambiguous-phase`, `xm-confirm-not-boolean`, `xm-then-persona-mismatch`, `xm-label-arg-missing`, `xm-label-grammar`, `xm-confirm-habituation`, `xm-command-trigger-mismatch`, `xm-origin-mismatch`, `xm-then-restates-default`, `xm-command-phase-mismatch`, `xm-cell-ambiguous`); `xm-unknown-role` compares normalized roles

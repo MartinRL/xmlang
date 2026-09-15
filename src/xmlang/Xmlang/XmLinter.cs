@@ -279,11 +279,11 @@ public static class XmLinter
     private static void LintLabelEntry(
         string locale, string element, XmLabelEntry entry, XmSpec xm, EmSpec em, List<XmFinding> findings)
     {
-        if (em.FindException(element) is not null)
+        if (em.FindRejection(element) is not null)
         {
             if (entry.IsMap)
                 findings.Add(new("xm-orphan-label", XmSeverity.Error,
-                    $"label '{element}' ({locale}) is an exception and takes the string form only"));
+                    $"label '{element}' ({locale}) is a rejection and takes the string form only"));
             LintArguments(locale, element, entry, new Dictionary<string, string>(), findings);
             return;
         }

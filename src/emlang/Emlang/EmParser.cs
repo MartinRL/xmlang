@@ -130,7 +130,7 @@ public static class EmParser
     public static EmSpec Merge(IReadOnlyList<EmSpec> specs) => new(
         [.. specs.SelectMany(s => s.Elements)],
         [.. specs.SelectMany(s => s.Slices)],
-        [.. specs.SelectMany(s => s.TriggerRoles).Distinct()],
+        [.. specs.SelectMany(s => s.InitiatorRoles).Distinct()],
         specs.SelectMany(s => s.Phases)
             .GroupBy(p => p.Key)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)[.. g.SelectMany(p => p.Value).Distinct()]),

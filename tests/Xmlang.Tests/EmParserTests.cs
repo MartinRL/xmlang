@@ -61,9 +61,9 @@ public class EmParserTests
     }
 
     [Fact]
-    public void TriggerRolesAreDistinctInitiatorLanePrefixes()
+    public void InitiatorRolesAreDistinctInitiatorLanePrefixes()
     {
-        Fixtures.ParsedEm.TriggerRoles.Should().BeEquivalentTo("owner", "customer");
+        Fixtures.ParsedEm.InitiatorRoles.Should().BeEquivalentTo("owner", "customer");
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class EmParserTests
         em.Initiators.Should().Equal(
             new EmInitiator("Pay", "🧾 Clerk", "Invoice list", false),
             new EmInitiator("Pay", "⚙️ System", "Payment run", true));
-        em.TriggerRoles.Should().Equal("clerk", "system");
+        em.InitiatorRoles.Should().Equal("clerk", "system");
         em.InitiatorsOf("Pay").Should().HaveCount(2);
         em.Chains.Single().TerminalView.Should().BeNull();
     }
@@ -150,7 +150,7 @@ public class EmParserTests
         var merged = EmParser.Merge([Fixtures.ParsedEm, Fixtures.ParsedEm]);
         merged.Elements.Should().HaveCount(Fixtures.ParsedEm.Elements.Count * 2);
         merged.Slices.Should().HaveCount(4);
-        merged.TriggerRoles.Should().BeEquivalentTo("owner", "customer");
+        merged.InitiatorRoles.Should().BeEquivalentTo("owner", "customer");
         merged.PhaseValues.Should().Equal("closed", "open");
     }
 

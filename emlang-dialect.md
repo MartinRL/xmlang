@@ -1,8 +1,9 @@
 ---
 title: "emlang decider dialect 1.1.0 (forked from upstream emlang spec v1.0.0)"
-description: "The delta between this repository's emlang and the upstream spec: the s: state element, actor/automation initiators, the decider rules and the lint appendix"
+description: "The delta between this repository's emlang and the upstream spec: the s: state element, actor/automation/translator initiators, the decider rules and the lint appendix"
 created: 2026-09-14
-release: emlang-v0.4.0
+last published: 2026-09-16
+release: emlang-v0.5.0
 tags: [spec, emlang, event-modeling, decider, dcb]
 ---
 # emlang decider dialect

@@ -9,6 +9,23 @@ Together, they separate domain logic from UX judgment, and make both machine-rea
 
 The canonical specifications live here: [xmlang-spec.md](xmlang-spec.md) and [emlang-dialect.md](emlang-dialect.md). This repository is the reference implementation: parsers, linters, and CLIs for both dialects.
 
+## Where xmlang sits
+
+Event Modeling already has an experience row: step 3 of the workshop is the storyboard, the wireframes across the top of the blueprint. xmlang is that row as data instead of pictures. It keeps the judgment a wireframe carries (who sees which view and command, when, in what order of importance, with what friction, landing where) and refuses the geometry. The Event Model alone already determines a default experience (see [Defaults](xmlang-spec.md#defaults)); an xm file records only the judgments that depart from it, and each entry replaces one informal artifact: a persona doc, a sitemap, a journey map, a copy deck.
+
+That is also why xmlang has no workshop format of its own. Its input is the storyboard row of an Event Modeling session, or a design. emlang's picture is the blueprint; an xm's picture is a rendered surface, and only one possible one.
+
+| Technique | Unit | Form | Where it lands here |
+|---|---|---|---|
+| User story | *As a persona, I want capability, so that benefit* | Prose card, a promise of a conversation | Persona and capability are `for:` and `c:`. The Confirmation half (acceptance criteria) is emlang's Given/When/Then, not xm |
+| Use case (Jacobson, Cockburn) | Actor, goal, main success scenario, extensions, preconditions | Structured prose, numbered steps, UI deliberately kept out | Actor is a persona, goal a command, each extension a named rejection, preconditions the `during:` phase. The success scenario is derived from the Event Model; xm records only the judgments on it (`confirm:`, `then:`, salience). xm is the place for what use cases were told to leave out |
+| Domain Storytelling (Hofer, Schwentner) | One concrete story: actors, work objects, numbered activities | Pictographic diagram; one story, no branches | A discovery input, upstream of both models. Actors, work objects and activities become swimlanes, views and commands in emlang. xm is the record after discovery, and covers every declined path the story left out |
+| Event Modeling storyboard | A wireframe per slice on the timeline | Sketch | xm, minus the geometry |
+| Wireframe, Figma, design system | A screen | Geometry, components, visual language | Neither model. Layout belongs to the transformer, components and tokens to the design system ([RFC xmlang-0002](rfcs/xmlang-0002-frontend-architecture.md)) |
+| BDD / Gherkin | A scenario | Given/When/Then | emlang, not xm |
+
+Rule of thumb: if the sentence says what the system does, it is emlang. If it says what a person sees or decides, and the Event Model cannot derive it, it is xmlang. If it says where something is on the screen, it is neither.
+
 ### Packages
 
 **Event Model (emlang)**

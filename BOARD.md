@@ -19,8 +19,10 @@ kanban-plugin: board
 
 
 
+
 ## Done
 
+- [x] lob-ap: em gained the hold-from-submitted and void-from-scheduled success scenarios its own comments promised; xm lint fully clean (0/0/0)
 - [x] lob-ap testbed migrated to the decider dialect: em lint 0 errors, xm lint 0 errors 0 warnings (Bulk Approve became per-invoice decisions)
 - [x] README: "Where xmlang sits" positioning section (user story, use case, Domain Storytelling, storyboard, BDD)
 - [x] Release xmlang-v0.6.1 / emlang-v0.5.0

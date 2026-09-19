@@ -784,6 +784,16 @@ slices:
         then:
           - e: Invoice / InvoiceHeld
             props: { invoiceId: inv1, heldFromPhase: approved, reason: Supplier disputes quantity, heldBy: dinaId }
+      submitted invoice can be put on hold:
+        given:
+          - s: Invoice
+            props: { invoiceId: inv1, phase: submitted, version: 3 }
+        when:
+          - c: HoldInvoice
+            props: { invoiceId: inv1, expectedVersion: 3, reason: Supplier disputes quantity }
+        then:
+          - e: Invoice / InvoiceHeld
+            props: { invoiceId: inv1, heldFromPhase: submitted, reason: Supplier disputes quantity, heldBy: dinaId }
       cannot hold a paid invoice:
         given:
           - s: Invoice
@@ -1067,6 +1077,18 @@ slices:
         when:
           - c: VoidInvoice
             props: { invoiceId: inv1, expectedVersion: 4, reason: Duplicate of A-2026-0041 }
+        then:
+          - e: Invoice / InvoiceVoided
+            props: { invoiceId: inv1, reason: Duplicate of A-2026-0041, voidedBy: boId }
+          - e: Ledger / LiabilityReversed
+            props: { invoiceId: inv1, amount: 12500, currency: SEK }
+      scheduled invoice can be voided before the run:
+        given:
+          - s: Invoice
+            props: { invoiceId: inv1, phase: scheduled, version: 5, totalAmount: 12500, currency: SEK }
+        when:
+          - c: VoidInvoice
+            props: { invoiceId: inv1, expectedVersion: 5, reason: Duplicate of A-2026-0041 }
         then:
           - e: Invoice / InvoiceVoided
             props: { invoiceId: inv1, reason: Duplicate of A-2026-0041, voidedBy: boId }

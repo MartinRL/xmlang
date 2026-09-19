@@ -5,8 +5,8 @@ using Xunit;
 namespace Emlang.Tests;
 
 /// <summary>
-/// EmFormatter: alias normalization goldens (the dialect's kinds included), the RFC 0005
-/// legacy-trigger rewrite, section presence round-trip, key-style default, idempotence.
+/// EmFormatter: alias normalization goldens (the dialect's kinds included), translator
+/// key round-trip, section presence round-trip, key-style default, idempotence.
 /// </summary>
 public class FormatterTests
 {
@@ -32,7 +32,7 @@ public class FormatterTests
             "    - actor: Foo\n" +
             "    - command: Bar\n" +
             "    - event: Baz\n" +
-            "    - exception: Err\n" +
+            "    - rejection: Err\n" +
             "    - view: MyView\n" +
             "    - state: MyState\n" +
             "    - automation: Bot\n");
@@ -47,7 +47,7 @@ public class FormatterTests
               s:
                 - cmd: Bar
                 - evt: Baz
-                - err: Qux
+                - rej: Qux
                 - st: Quux
             """);
 
@@ -56,7 +56,7 @@ public class FormatterTests
             "  s:\n" +
             "    - command: Bar\n" +
             "    - event: Baz\n" +
-            "    - exception: Qux\n" +
+            "    - rejection: Qux\n" +
             "    - state: Quux\n");
     }
 
@@ -70,7 +70,7 @@ public class FormatterTests
                 - actor: Foo
                 - command: Bar
                 - event: Baz
-                - exception: Err
+                - rejection: Err
                 - view: MyView
                 - state: MyState
                 - automation: Bot
@@ -88,25 +88,23 @@ public class FormatterTests
             "    - auto: Bot\n");
     }
 
-    /// <summary>RFC emlang-0005's one-time migration: System or a gear emoji is an automation.</summary>
+    /// <summary>Translator is a first-class initiator: t: ↔ translator:, never rewritten.</summary>
     [Fact]
-    public void Legacy_triggers_are_rewritten_to_actor_or_automation()
+    public void Translator_keys_round_trip()
     {
         var doc = EmAst.Parse(
             """
             slices:
               s:
-                - t: 🧑‍🏫 host /Quiz catalog
-                - trigger: ⚙️ System / Reveal lot
-                - trg: system /Cron
+                - t: 📨 Payment gateway /Webhook
+                - translator: 📨 Bank / Statement import
             """);
 
-        EmFormatter.Format(doc, "short").Should().Be(
+        EmFormatter.Format(doc).Should().Be(
             "slices:\n" +
             "  s:\n" +
-            "    - a: 🧑‍🏫 host/Quiz catalog\n" +
-            "    - auto: ⚙️ System/Reveal lot\n" +
-            "    - auto: system/Cron\n");
+            "    - translator: 📨 Payment gateway/Webhook\n" +
+            "    - translator: 📨 Bank/Statement import\n");
     }
 
     [Fact]

@@ -135,18 +135,18 @@ public class LintingTests
             """).Should().ContainSingle().Subject;
 
         issue.Should().Be(new LintIssue(
-            "command-without-event", "command should be followed by an event or exception",
+            "command-without-event", "command should be followed by an event or rejection",
             4, 7, LintSeverity.Warning));
     }
 
     [Fact]
-    public void Orphan_exception_warns() =>
+    public void Orphan_rejection_warns() =>
         Rules("""
             slices:
               Broken:
                 - x: NotAllowed
                 - e: Game/Opened
-            """).Should().Equal("orphan-exception");
+            """).Should().Equal("orphan-rejection");
 
     [Fact]
     public void Slice_with_a_command_and_no_event_warns_at_position_zero()
@@ -260,7 +260,7 @@ public class LintingTests
     // --- RFC emlang-0003 / 0005: initiators ---------------------------------------------
 
     [Fact]
-    public void An_initiator_after_the_command_warns_and_a_legacy_trigger_is_info()
+    public void An_initiator_after_the_command_warns()
     {
         var issues = Lint("""
             slices:
@@ -271,8 +271,7 @@ public class LintingTests
             """);
 
         issues.Select(i => (i.Rule, i.Severity)).Should().Equal(
-            ("em-initiator-after-command", LintSeverity.Warning),
-            ("em-legacy-trigger", LintSeverity.Info));
+            ("em-initiator-after-command", LintSeverity.Warning));
     }
 
     // --- RFC emlang-0004: appendix ---------------------------------------------------------

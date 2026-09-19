@@ -19,7 +19,7 @@ public class EmParserTests
               Long:
                 - command: DoOther
                 - event: Log / OtherDone
-                - exception: OtherBroken
+                - rejection: OtherBroken
                 - view: Others
             """);
         em.Elements.Select(e => (e.Kind, e.Name)).Should().BeEquivalentTo(new[]
@@ -100,7 +100,7 @@ public class EmParserTests
             slices:
               Pay:
                 - a: 🧾 Clerk /Invoice list
-                - t: ⚙️ System / Payment run
+                - auto: ⚙️ System / Payment run
                 - c: Pay
                 - e: Invoice / Paid
             """);

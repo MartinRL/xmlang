@@ -131,7 +131,7 @@
     🧑 OpenShop,
     🛒 BrowseShop
   ],
-  TriggerRoles: [
+  InitiatorRoles: [
     owner,
     customer
   ],

@@ -1,4 +1,4 @@
-# LOB-AP — Experience Model (xmlang v0.5) over lob-ap.em.yaml.
+# LOB-AP — Experience Model (xmlang v0.6) over lob-ap.em.yaml.
 # Written as a UX designer for an accounts-payable product would, using ONLY the current
 # vocabulary: personas · surfaces (compose / for / during / fields / self / prominence) ·
 # journeys · labels · tokens. Every judgment the designer wanted to record and COULD NOT is
@@ -10,7 +10,7 @@
 # not fit (W-1). Surfaces about no particular invoice (directory, worklist, dashboards) carry
 # no `during` and are active always, which is correct.
 
-xmlang: "0.5"
+xmlang: "0.6"
 model: lob-ap.em.yaml
 
 personas:
